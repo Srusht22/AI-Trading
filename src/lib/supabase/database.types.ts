@@ -1,78 +1,56 @@
 /**
- * Database types for the `public` schema, matching
- * supabase/migrations/20261023120000_foundation.sql.
+ * Client-facing database types.
  *
- * Regenerate after schema changes with:  npm run db:types
- * (requires the local Supabase stack). Hand edits must mirror the migration.
+ * The schema comes from database.generated.ts (machine-generated, verified
+ * against the live database by `npm run db:types:check`). The generator
+ * describes tables, not privileges, so its Insert/Update types list every
+ * column. Here they are narrowed to the columns the `authenticated` role is
+ * actually GRANTed, so code that tries to write an ownership, revision or
+ * timestamp column — or any audit event — fails to compile.
+ *
+ * WRITABLE_COLUMNS is checked against information_schema.column_privileges by
+ * tests/integration/types.test.ts, so it cannot silently drift from the
+ * migration's GRANT statements.
  */
-export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+import type { Database as Generated, Json } from './database.generated';
 
-export interface Database {
-  public: {
+export type { Json };
+
+export const WRITABLE_COLUMNS = {
+  profiles: {
+    insert: ['display_name', 'id'],
+    update: ['display_name'],
+  },
+  user_settings: {
+    insert: [
+      'date_format',
+      'display_currency',
+      'notification_preferences',
+      'number_format',
+      'show_beginner_help',
+      'theme',
+      'timezone',
+      'user_id',
+    ],
+    update: ['date_format', 'display_currency', 'notification_preferences', 'number_format', 'show_beginner_help', 'theme', 'timezone'],
+  },
+  audit_events: { insert: [], update: [] },
+} as const;
+
+type GenTables = Generated['public']['Tables'];
+type Writable = typeof WRITABLE_COLUMNS;
+
+type Narrowed<T extends keyof GenTables & keyof Writable> = Omit<GenTables[T], 'Insert' | 'Update'> & {
+  Insert: Writable[T]['insert'] extends readonly [] ? never : Pick<GenTables[T]['Insert'], Writable[T]['insert'][number] & keyof GenTables[T]['Insert']>;
+  Update: Writable[T]['update'] extends readonly [] ? never : Pick<GenTables[T]['Update'], Writable[T]['update'][number] & keyof GenTables[T]['Update']>;
+};
+
+export type Database = Omit<Generated, 'public'> & {
+  public: Omit<Generated['public'], 'Tables'> & {
     Tables: {
-      profiles: {
-        Row: { id: string; display_name: string | null; created_at: string; updated_at: string };
-        Insert: { id: string; display_name?: string | null };
-        Update: { display_name?: string | null };
-        Relationships: [];
-      };
-      user_settings: {
-        Row: {
-          user_id: string;
-          theme: string;
-          display_currency: string;
-          timezone: string;
-          date_format: string;
-          number_format: string;
-          show_beginner_help: boolean;
-          notification_preferences: Json;
-          revision: number;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          user_id: string;
-          theme?: string;
-          display_currency?: string;
-          timezone?: string;
-          date_format?: string;
-          number_format?: string;
-          show_beginner_help?: boolean;
-          notification_preferences?: Json;
-        };
-        Update: {
-          theme?: string;
-          display_currency?: string;
-          timezone?: string;
-          date_format?: string;
-          number_format?: string;
-          show_beginner_help?: boolean;
-          notification_preferences?: Json;
-        };
-        Relationships: [];
-      };
-      audit_events: {
-        Row: {
-          id: string;
-          actor_user_id: string | null;
-          event_type: string;
-          resource_type: string;
-          resource_id: string | null;
-          metadata: Json;
-          created_at: string;
-        };
-        Insert: never;
-        Update: never;
-        Relationships: [];
-      };
+      profiles: Narrowed<'profiles'>;
+      user_settings: Narrowed<'user_settings'>;
+      audit_events: Narrowed<'audit_events'>;
     };
-    Views: Record<never, never>;
-    Functions: {
-      get_my_access: { Args: Record<never, never>; Returns: { is_owner: boolean; owner_configured: boolean }[] };
-      is_owner: { Args: Record<never, never>; Returns: boolean };
-      admin_assign_owner: { Args: { p_email: string; p_replace?: boolean }; Returns: string };
-    };
-    Enums: Record<never, never>;
-    CompositeTypes: Record<never, never>;
   };
-}
+};

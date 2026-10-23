@@ -35,6 +35,7 @@ describe('error mapping', () => {
     [{ code: '23505', message: 'duplicate key' }, 409, 'conflict'],
     [{ code: '23514', message: 'violates check constraint' }, 400, 'validation'],
     [{ code: 'PGRST301', message: 'JWT expired' }, 401, 'session_expired'],
+    [{ code: '28000', message: 'session is no longer active' }, 403, 'session_expired'],
     [{ code: '', message: 'TypeError: Failed to fetch' }, 0, 'network'],
     [{ code: 'XX000', message: 'internal' }, 503, 'unavailable'],
   ])('maps PostgREST %o (HTTP %s) to %s', (error, status, kind) => {

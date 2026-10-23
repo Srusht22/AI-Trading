@@ -2,6 +2,9 @@ begin;
 \ir _helpers.inc
 select plan(30);
 
+-- Start from "no owner" regardless of database state (rolled back at the end).
+delete from private.app_owner;
+
 select pg_temp.create_user('rls-a@example.test') as a \gset
 select pg_temp.create_user('rls-b@example.test') as b \gset
 

@@ -7,15 +7,7 @@
     <meta name="theme-color" content="#080C12" />
     <meta name="description" content="TradePilot AI — a personal workspace for researching, testing and understanding Forex trading robots." />
     <title>TradePilot AI</title>
-    <script>
-      // Apply the stored theme before first paint to avoid a flash.
-      (function () {
-        try {
-          var t = localStorage.getItem('tp-theme');
-          if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
-        } catch (e) {}
-      })();
-    </script>
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

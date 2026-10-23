@@ -54,7 +54,8 @@ export function fromPostgrestError(error: PostgrestLikeError, action: string, st
   const code = error.code ?? '';
   const base = `Unable to ${action}.`;
   if (isNetworkMessage(error.message)) return new AppError('network', NETWORK_MESSAGE, { code, cause: error });
-  if (status === 401 || code === 'PGRST301' || code === 'PGRST303')
+  // 28000: the database rejected a token whose session was signed out or revoked.
+  if (status === 401 || code === 'PGRST301' || code === 'PGRST303' || code === '28000')
     return new AppError('session_expired', 'Your session has expired. Please sign in again.', { code, cause: error });
   if (code === '42501' || status === 403)
     return new AppError('authorization', `${base} You don’t have permission to do this.`, { code, cause: error });

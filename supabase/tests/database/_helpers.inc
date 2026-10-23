@@ -15,11 +15,33 @@ begin
   return v_id;
 end $$;
 
--- Act as a signed-in user, the way PostgREST does for a request with that JWT.
-create function pg_temp.act_as(p_user uuid) returns void language plpgsql as $$
+-- Act as a signed-in user, the way PostgREST does for a request carrying a
+-- real GoTrue access token: role authenticated, sub = user, session_id = a
+-- live row in auth.sessions (reused per user so tests can count audit rows).
+create function pg_temp.session_for(p_user uuid) returns uuid language plpgsql as $$
+declare v_id uuid;
+begin
+  select id into v_id from auth.sessions where user_id = p_user order by created_at limit 1;
+  if v_id is null then
+    v_id := gen_random_uuid();
+    insert into auth.sessions (id, user_id, created_at, updated_at) values (v_id, p_user, now(), now());
+  end if;
+  return v_id;
+end $$;
+
+create function pg_temp.act_as_session(p_user uuid, p_session uuid) returns void language plpgsql as $$
 begin
   perform set_config('role', 'authenticated', true);
-  perform set_config('request.jwt.claims', json_build_object('sub', p_user, 'role', 'authenticated')::text, true);
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', p_user, 'role', 'authenticated', 'session_id', p_session)::text, true);
+end $$;
+
+create function pg_temp.act_as(p_user uuid) returns void language plpgsql as $$
+declare v_session uuid;
+begin
+  perform pg_temp.reset_role();
+  v_session := pg_temp.session_for(p_user);
+  perform pg_temp.act_as_session(p_user, v_session);
 end $$;
 
 create function pg_temp.act_as_anon() returns void language plpgsql as $$

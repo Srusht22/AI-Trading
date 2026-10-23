@@ -71,6 +71,27 @@ separately when that data exists (`TimeBasis` in `src/domain/marketData.ts`).
 Rollback script: `supabase/rollbacks/20261023120000_foundation.down.sql`
 (destroys Phase 2 data; run manually).
 
+Migration `20261024090000_session_bound_access.sql` (Phase 2.1) adds
+`public.has_active_session()` and requires it in every policy, `is_owner()` and
+`get_my_access()`, so revoking a session (sign-out, "sign out other devices",
+admin revoke) revokes database and Realtime access immediately rather than when
+the access token expires. A revoked token calling `get_my_access()` gets
+SQLSTATE `28000`, shown to the user as "session expired". See
+[security.md](security.md).
+
+### TypeScript types
+
+* `src/lib/supabase/database.generated.ts` — output of `supabase gen types`,
+  never edited by hand. `npm run db:types` regenerates it (from the
+  `supabase start` stack, or any database via `DB_URL=…`), and writes only
+  if generation succeeded. `npm run db:types:check` fails on schema drift.
+* `src/lib/supabase/database.types.ts` — the type the client uses: the
+  generated schema with Insert/Update narrowed to the columns `authenticated`
+  is actually granted (`WRITABLE_COLUMNS`). Writing an ownership, revision or
+  timestamp column, or any audit event, fails to compile
+  (`database.types.check.ts`), and `tests/integration/types.test.ts` proves the
+  list equals `information_schema.column_privileges`.
+
 ### Planned domain tables (not created yet)
 
 Robots and versions, strategy specifications and source versions, backtest
@@ -106,10 +127,17 @@ code would populate them.
 * **Enumeration**: sign-in, sign-up and password-reset responses never reveal
   whether an email is registered.
 * **Redirects**: `next=` targets are restricted to same-origin paths.
+* **Session binding**: data access requires a live `auth.sessions` row for the
+  token's `session_id` (Phase 2.1).
+* **Browser hardening**: strict CSP with Trusted Types, `frame-ancestors
+  'none'`, `connect-src` limited to the Supabase project, plus standard
+  security headers — injected into every build and emitted as `dist/_headers`
+  (Phase 2.1, [security.md](security.md)).
 
-Session storage note: supabase-js keeps the session in `localStorage` (its
-supported mechanism for single-page apps). A cookie-based session would require
-a server-rendered host; revisit if the deployment gains one.
+Session storage: supabase-js keeps the session (including the refresh token)
+in `localStorage`. The risks, the mitigations in place and the recommended
+path to server-managed `HttpOnly` cookies before trading controls are hosted
+are documented in [security.md](security.md).
 
 ## 5. Real-time scope
 
@@ -165,11 +193,14 @@ public settings and shows "registrations are closed".
 ### Hosted deployment (not done in Phase 2)
 
 1. Create a Supabase project; `npx supabase link` then `npx supabase db push`.
-2. In Auth settings: site URL = your domain; add `https://your-domain/reset-password`
-   and `https://your-domain/**` to redirect URLs; configure SMTP (the built-in
-   sender is rate-limited); keep "Confirm email" on.
+2. In Auth settings: site URL = your domain; redirect URLs exactly
+   `https://your-domain/sign-in` and `https://your-domain/reset-password`;
+   configure SMTP (the built-in sender is rate-limited); keep "Confirm email"
+   and "Secure password change" on; JWT expiry 900 s; session timebox and
+   inactivity timeout as in `supabase/config.toml`.
 3. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in the static
-   host's build environment; configure SPA fallback to `index.html`.
+   host's build environment; configure SPA fallback to `index.html`; serve the
+   headers in `dist/_headers` (see the checklist in [security.md](security.md)).
 4. Bootstrap the owner and close registration as above.
 
 ## 7. Verification
@@ -179,7 +210,8 @@ public settings and shows "registrations are closed".
 | `npm test` | Unit + component tests (jsdom) using an in-memory service double for deterministic auth states and failure injection |
 | `npm run test:db` | pgTAP suite in `supabase/tests/database` — constraints, RLS matrix (anon / user A / user B / owner / service_role), audit immutability |
 | `npm run test:integration` | Real services against the local stack: auth, persistence, conflicts, RLS over REST, Realtime delivery under RLS, Mailpit email flows |
-| `npm run test:e2e` | Playwright in a real browser against the local stack: sign-up → email confirmation → owner gate, reset password, persistence across reload, cross-tab Realtime, honest dashboard, mobile layout |
+| `npm run test:e2e` | Playwright in a real browser against the local stack: sign-up → email confirmation → owner gate, reset password, persistence across reload, cross-tab Realtime, honest dashboard, mobile layout; plus the **production build** under its CSP/headers (no violations, injected script blocked, framing refused) |
+| `npm run db:types:check` | Generated types match the live schema |
 | `npm run verify` | lint, typecheck, unit tests, build, bundle secret scan |
 
 Integration and E2E tests create users and reassign the owner, so they refuse

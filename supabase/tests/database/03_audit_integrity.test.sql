@@ -21,12 +21,14 @@ select ok(not exists (select 1 from public.audit_events where metadata::text ili
           'audit metadata does not copy profile values');
 
 -- Sessions (sign-in / sign-out) ----------------------------------------------
+select count(*)::int as started_before from public.audit_events where actor_user_id = :'a' and event_type = 'auth.session_started' \gset
 insert into auth.sessions (id, user_id, created_at, updated_at) values (gen_random_uuid(), :'a', now(), now());
 select is((select count(*)::int from public.audit_events where actor_user_id = :'a' and event_type = 'auth.session_started'),
-          1, 'sign-in (session creation) is audited');
+          :started_before + 1, 'sign-in (session creation) is audited');
+select count(*)::int as live_sessions from auth.sessions where user_id = :'a' \gset
 delete from auth.sessions where user_id = :'a';
 select is((select count(*)::int from public.audit_events where actor_user_id = :'a' and event_type = 'auth.session_ended'),
-          1, 'sign-out (session deletion) is audited');
+          :live_sessions, 'sign-out (session deletion) is audited');
 
 -- Append-only, even for service_role ------------------------------------------
 select pg_temp.act_as_service();

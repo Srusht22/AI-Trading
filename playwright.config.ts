@@ -20,13 +20,24 @@ export default defineConfig({
     launchOptions: executablePath ? { executablePath } : undefined,
   },
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
-    { name: 'mobile', use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } }, grep: /@mobile/ },
+    { name: 'desktop', testIgnore: /csp\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
+    { name: 'mobile', testIgnore: /csp\.spec\.ts/, use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } }, grep: /@mobile/ },
+    // Production build served with the real security headers (CSP, Trusted Types, frame-ancestors…).
+    { name: 'production-csp', testMatch: /csp\.spec\.ts/, use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:4173' } },
   ],
-  webServer: {
-    command: 'npm run dev -- --port 5173 --strictPort',
-    url: 'http://localhost:5173',
-    reuseExistingServer: true,
-    timeout: 60_000,
-  },
+  webServer: [
+    {
+      command: 'npm run dev -- --port 5173 --strictPort',
+      url: 'http://localhost:5173',
+      reuseExistingServer: true,
+      timeout: 60_000,
+    },
+    {
+      command: 'npm run build && npx vite preview --port 4173 --strictPort',
+      url: 'http://localhost:4173',
+      // Always test a fresh production build, never a stale preview.
+      reuseExistingServer: false,
+      timeout: 180_000,
+    },
+  ],
 });

@@ -5,7 +5,8 @@ A personal workspace for researching, testing and understanding Forex trading ro
 > **Status: Phase 2 — backend foundation.** Real authentication (Supabase Auth), a Postgres database with Row-Level
 > Security, persisted profile/settings, a server-written audit log and live updates for those records. Nothing is
 > connected to MetaTrader 5, a broker or an AI service yet: those views show explicit "unavailable" states, and any
-> invented figures appear only in an opt-in, clearly labelled **Sample data** preview. See [docs/backend.md](docs/backend.md).
+> invented figures appear only in an opt-in, clearly labelled **Sample data** preview. See [docs/backend.md](docs/backend.md)
+> and, before any hosted deployment, [docs/security.md](docs/security.md).
 
 ## Quick start
 
@@ -20,7 +21,8 @@ npm run owner:assign -- you@example.com    # trusted owner bootstrap, then reloa
 npm run verify            # lint, typecheck, unit tests, build, bundle secret scan
 npm run test:db           # pgTAP database/RLS tests
 npm run test:integration  # services against the local stack
-npm run test:e2e          # Playwright against the local stack
+npm run test:e2e          # Playwright: dev server + production build under its CSP
+npm run db:types          # regenerate database types (db:types:check detects drift)
 ```
 
 Requires Node 20+ and Docker. Without `.env.local` the app shows a configuration screen instead of any data. The app
@@ -60,6 +62,7 @@ scripts/                  Owner bootstrap, bundle secret scan (server-side tooli
 tests/integration/        Real services against the local stack
 tests/e2e/                Playwright browser tests
 docs/backend.md           Architecture, data flow, security model, setup, verification
+docs/security.md          Session-security review, accepted risks, pre-deployment checklist
 ```
 
 ## Design principles
