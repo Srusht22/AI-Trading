@@ -30,7 +30,7 @@ export function ComparisonChart({ series }: { series: ComparisonSeries[] }) {
   const ticks = niceTicks(Math.min(0, ...values), Math.max(...values), 5);
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 640, height: 240 }}>
       <LineChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 4 }}>
         <CartesianGrid {...gridProps} />
         <XAxis dataKey="t" type="number" scale="time" domain={['dataMin', 'dataMax']} tickFormatter={dateTick} minTickGap={36} {...axisProps} />

@@ -3,6 +3,7 @@ import { connectionStateLabel, type ConnectionState } from '@/config/integration
 import { cn } from '@/lib/cn';
 
 const stateVisual: Record<ConnectionState, { icon: LucideIcon; className: string }> = {
+  unavailable: { icon: CircleDashed, className: 'text-fg-3' },
   not_configured: { icon: CircleDashed, className: 'text-fg-3' },
   not_connected: { icon: CircleDashed, className: 'text-fg-3' },
   connecting: { icon: Loader2, className: 'text-info animate-spin' },

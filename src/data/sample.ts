@@ -6,10 +6,9 @@
  *  service, and it must always be rendered with a visible sample label.
  * ─────────────────────────────────────────────────────────────────────────
  */
+import type { EquityPoint } from '@/domain/marketData';
 import type {
-  ActivityEvent,
   ClosedTrade,
-  EquityPoint,
   LogLine,
   PendingOrder,
   Position,
@@ -140,51 +139,6 @@ export const sampleDashboard = {
   account: { balance: 10_842.15, equity: 10_825.65, currency: 'USD' },
   research: { candidates: 3, experiments: 11, currentTask: 'Comparing stop-loss distances for MA Crossover Trend' },
 };
-
-export const sampleActivity: ActivityEvent[] = [
-  {
-    id: 'a1',
-    kind: 'approval_requested',
-    title: 'Approval requested',
-    detail: 'MA Crossover Trend v1.3 is waiting for your review before it can run in demo.',
-    at: '2026-09-30T09:12:00Z',
-  },
-  {
-    id: 'a2',
-    kind: 'backtest_completed',
-    title: 'Backtest completed',
-    detail: 'MA Crossover Trend v1.2 · EURUSD H1 · Oct 2025 – Sep 2026',
-    at: '2026-09-28T16:40:00Z',
-  },
-  {
-    id: 'a3',
-    kind: 'proposal_created',
-    title: 'Research proposal created',
-    detail: 'Test a wider stop-loss during high-volatility news hours.',
-    at: '2026-09-27T11:05:00Z',
-  },
-  {
-    id: 'a4',
-    kind: 'connection_lost',
-    title: 'MT5 connection lost',
-    detail: 'The connector stopped sending heartbeats for 4 minutes, then recovered.',
-    at: '2026-09-25T02:31:00Z',
-  },
-  {
-    id: 'a5',
-    kind: 'backtest_failed',
-    title: 'Backtest failed',
-    detail: 'Grid Recovery v3.1 · Not enough historical data for AUDCAD M30.',
-    at: '2026-09-22T13:18:00Z',
-  },
-  {
-    id: 'a6',
-    kind: 'candidate_created',
-    title: 'Strategy candidate created',
-    detail: 'RSI Mean Reversion v0.4 drafted from your description.',
-    at: '2026-09-20T08:47:00Z',
-  },
-];
 
 export const samplePositions: Position[] = [
   { id: 'p1', symbol: 'EURUSD', side: 'buy', lots: 0.1, openPrice: 1.0842, currentPrice: 1.0819, profit: -23.0, robot: 'MA Crossover Trend', openedAt: '2026-09-30T07:00:00Z' },

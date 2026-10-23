@@ -10,11 +10,22 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:db": "supabase test db",
+    "test:e2e": "playwright test",
+    "check:secrets": "node scripts/check-bundle-secrets.mjs",
+    "db:start": "supabase start",
+    "db:reset": "supabase db reset",
+    "db:types": "supabase gen types typescript --local --schema public > src/lib/supabase/database.types.ts",
+    "owner:assign": "node scripts/assign-owner.mjs",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run build && npm run check:secrets"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@supabase/supabase-js": "^2.118.0",
+    "@tanstack/react-query": "^5.104.5",
     "clsx": "^2.1.1",
     "lucide-react": "^0.511.0",
     "motion": "^12.43.0",
@@ -23,10 +34,12 @@
     "react-dom": "^19.3.1",
     "react-router-dom": "^7.18.4",
     "recharts": "^2.15.4",
-    "tailwind-merge": "^3.7.0"
+    "tailwind-merge": "^3.7.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.56.1",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^6.9.1",
@@ -41,6 +54,7 @@
     "eslint-plugin-react-refresh": "^0.4.26",
     "globals": "^16.5.0",
     "jsdom": "^26.1.0",
+    "supabase": "^2.121.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~5.8",
     "typescript-eslint": "^8.72.0",

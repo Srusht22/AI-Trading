@@ -31,28 +31,7 @@ export interface Robot {
   traits: string[];
 }
 
-export interface EquityPoint {
-  t: number; // epoch ms
-  equity: number;
-  balance: number;
-}
-
-export type ActivityKind =
-  | 'backtest_completed'
-  | 'backtest_failed'
-  | 'candidate_created'
-  | 'robot_updated'
-  | 'connection_lost'
-  | 'proposal_created'
-  | 'approval_requested';
-
-export interface ActivityEvent {
-  id: string;
-  kind: ActivityKind;
-  title: string;
-  detail: string;
-  at: string;
-}
+export type { EquityPoint } from '@/domain/marketData';
 
 export interface Position {
   id: string;

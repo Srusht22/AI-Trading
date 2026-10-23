@@ -10,6 +10,8 @@ interface ChartContainerProps {
   controls?: ReactNode;
   legend?: ReactNode;
   sample?: boolean;
+  /** Status shown next to the title, e.g. a data-freshness badge. */
+  badge?: ReactNode;
   /** Accessible alternative to the plotted marks. */
   table?: ReactNode;
   /** Rendered instead of the chart when there is no data. */
@@ -26,6 +28,7 @@ export function ChartContainer({
   controls,
   legend,
   sample,
+  badge,
   table,
   empty,
   height = 300,
@@ -41,6 +44,7 @@ export function ChartContainer({
           <div className="flex flex-wrap items-center gap-2">
             <H className="text-fg text-md font-semibold">{title}</H>
             {sample && <PreviewTag />}
+            {badge}
           </div>
           {explanation && <p className="text-fg-2 mt-1 max-w-2xl text-sm">{explanation}</p>}
         </div>

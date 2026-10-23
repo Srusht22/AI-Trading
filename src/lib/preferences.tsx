@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { readStored, writeStored } from './storage';
+import type { Theme } from '@/domain/settings';
 
-export type Theme = 'dark' | 'light';
+export type { Theme };
 
 interface Preferences {
   theme: Theme;
@@ -18,8 +19,13 @@ interface Preferences {
 const PreferencesContext = createContext<Preferences | null>(null);
 
 /**
- * Local, device-only UI preferences. Phase 1 persists these in localStorage;
- * account-level settings will move to the backend in a later phase.
+ * Device-level UI state.
+ *
+ *  - `theme` is the theme currently applied. The account's saved theme lives
+ *    in the database (user_settings.theme) and is synced in by
+ *    <PersistedThemeProvider>; localStorage only caches it so the first paint
+ *    does not flash.
+ *  - `sidebarCollapsed` and `showSampleData` are deliberately per-device.
  */
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => readStored('theme', ['dark', 'light'], 'dark'));
@@ -27,7 +33,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     () => readStored('sidebar', ['collapsed', 'expanded'], 'expanded') === 'collapsed',
   );
   const [showSampleData, setSampleState] = useState(
-    () => readStored('sample-data', ['on', 'off'], 'on') === 'on',
+    () => readStored('sample-data', ['on', 'off'], 'off') === 'on',
   );
 
   useEffect(() => {
@@ -54,7 +60,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const resetPreferences = useCallback(() => {
     setTheme('dark');
     setSidebarCollapsed(false);
-    setShowSampleData(true);
+    setShowSampleData(false);
   }, [setTheme, setSidebarCollapsed, setShowSampleData]);
 
   const value = useMemo(

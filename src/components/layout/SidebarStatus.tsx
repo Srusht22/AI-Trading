@@ -14,13 +14,16 @@ interface Row {
   href: string;
 }
 
+/** Compact wording for the narrow sidebar; full wording is used elsewhere. */
+const shortLabel = (s: ConnectionState) => (s === 'unavailable' ? 'Later phase' : connectionStateLabel[s]);
+
 const mt5 = integrationStatus.find((s) => s.id === 'mt5')!;
 const ai = integrationStatus.find((s) => s.id === 'ai')!;
 
 const rows: Row[] = [
-  { id: 'mt5', label: 'MT5', icon: Cpu, state: mt5.state, text: connectionStateLabel[mt5.state], href: '/connections' },
-  { id: 'ai', label: 'AI service', icon: Sparkles, state: ai.state, text: connectionStateLabel[ai.state], href: '/ai-analyst' },
-  { id: 'env', label: 'Mode', icon: FlaskConical, state: 'not_configured', text: 'Demo · UI preview', href: '/demo-trading' },
+  { id: 'mt5', label: 'MT5', icon: Cpu, state: mt5.state, text: shortLabel(mt5.state), href: '/connections' },
+  { id: 'ai', label: 'AI service', icon: Sparkles, state: ai.state, text: shortLabel(ai.state), href: '/ai-analyst' },
+  { id: 'env', label: 'Mode', icon: FlaskConical, state: 'unavailable', text: 'Demo only', href: '/demo-trading' },
 ];
 
 /** Compact system status at the foot of the sidebar. All states are honest Phase 1 values. */

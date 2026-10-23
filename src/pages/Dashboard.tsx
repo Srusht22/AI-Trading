@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
@@ -7,6 +7,8 @@ import {
   BarChart3,
   Bot,
   Circle,
+  CircleCheck,
+  CircleDashed,
   FlaskConical,
   History,
   LineChart,
@@ -23,20 +25,29 @@ import {
   DataTable,
   EmptyState,
   MetricCard,
-  PreviewTag,
   SampleDataBanner,
   SectionHeader,
   SegmentedControl,
+  Skeleton,
   Term,
 } from '@/components/ui';
 import { ChartContainer, ChartLegend } from '@/components/charts/ChartContainer';
 import { EquityChart, equityLegend } from '@/components/charts/EquityChart';
 import { dateLong } from '@/components/charts/chartTheme';
-import { ActivityItem } from '@/components/domain/ActivityItem';
+import { AuditEventList } from '@/components/domain/AuditEventList';
+import { FreshnessBadge } from '@/components/domain/FreshnessBadge';
+import { LiveIndicator } from '@/components/domain/LiveIndicator';
 import { ConnectionStatus } from '@/components/domain/ConnectionStatus';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { integrationStatus } from '@/config/integrations';
-import { sampleActivity, sampleDashboard, sampleEquity } from '@/data/sample';
+import { sampleDashboard, sampleEquity } from '@/data/sample';
+import type { EquitySeries } from '@/domain/marketData';
+import { useProfile } from '@/hooks/useAccount';
+import { useRecentAuditEvents } from '@/hooks/useAudit';
+import { useDisplayPrefs } from '@/hooks/useDisplayPrefs';
+import { cn } from '@/lib/cn';
+import { toAppError } from '@/lib/errors';
+import { useLiveStatus } from '@/lib/live';
 import { greetingFor } from '@/lib/greeting';
 import { formatMoney } from '@/lib/format';
 import { staggerContainer, staggerItem } from '@/lib/motion';
@@ -48,6 +59,8 @@ const rangeDays: Record<Range, number> = { '1M': 30, '3M': 91, '6M': 182, '1Y': 
 export default function DashboardPage() {
   const { showSampleData: sample, setShowSampleData } = usePreferences();
   const greeting = useMemo(() => greetingFor(new Date()), []);
+  const profile = useProfile();
+  const name = profile.data?.display_name;
 
   return (
     <motion.div variants={staggerContainer} initial="initial" animate="animate" className="space-y-8">
@@ -56,10 +69,13 @@ export default function DashboardPage() {
           <SampleDataBanner
             actions={
               <Button size="sm" variant="secondary" onClick={() => setShowSampleData(false)}>
-                Show empty workspace
+                Hide sample data
               </Button>
             }
-          />
+          >
+            Sections without a real data source yet are filled with invented examples. Your account activity and settings are always
+            real.
+          </SampleDataBanner>
         ) : (
           <Callout
             tone="info"
@@ -70,7 +86,8 @@ export default function DashboardPage() {
               </Button>
             }
           >
-            It is empty because nothing is connected yet. Sections fill in once robots, tests and MT5 are set up.
+            Your account, settings and activity are stored for real. Trading sections stay empty until robots, backtests and the MT5
+            connector exist in later phases — nothing here is invented.
           </Callout>
         )}
       </motion.div>
@@ -90,7 +107,8 @@ export default function DashboardPage() {
               documentTitle="Dashboard"
               title={
                 <span id="welcome-title">
-                  {greeting}. Welcome to <span className="brand-text">TradePilot AI</span>.
+                  {greeting}
+                  {name ? `, ${name}` : ''}. Welcome to <span className="brand-text">TradePilot AI</span>.
                 </span>
               }
               description="Your personal workspace for researching, testing, and understanding Forex trading robots."
@@ -132,8 +150,8 @@ export default function DashboardPage() {
             label="Robots"
             icon={Bot}
             sample={sample}
-            value={sample ? sampleDashboard.robots.configured : 0}
-            unit="configured"
+            value={sample ? sampleDashboard.robots.configured : '—'}
+            unit={sample ? 'configured' : undefined}
             footer={
               sample ? (
                 <span>
@@ -141,9 +159,7 @@ export default function DashboardPage() {
                   <span className="text-warning num">{sampleDashboard.robots.needsAttention}</span> need review
                 </span>
               ) : (
-                <Link to="/robots" className="text-accent inline-flex items-center gap-1 font-medium hover:underline">
-                  Library is empty — add a robot <ArrowRight className="size-3.5" aria-hidden />
-                </Link>
+                <UnavailableNote>The robot library arrives in a later phase.</UnavailableNote>
               )
             }
           />
@@ -151,8 +167,8 @@ export default function DashboardPage() {
             label="Backtests"
             icon={History}
             sample={sample}
-            value={sample ? sampleDashboard.backtests.total : 0}
-            unit="recorded"
+            value={sample ? sampleDashboard.backtests.total : '—'}
+            unit={sample ? 'recorded' : undefined}
             footer={
               sample ? (
                 <span>
@@ -160,7 +176,7 @@ export default function DashboardPage() {
                   <span className="text-fg num">{sampleDashboard.backtests.failed}</span> failed
                 </span>
               ) : (
-                'Historical tests appear here after you run one.'
+                <UnavailableNote>Backtests run through MT5, which isn’t connected yet.</UnavailableNote>
               )
             }
           />
@@ -176,7 +192,7 @@ export default function DashboardPage() {
                   Equity <span className="text-fg num">{formatMoney(sampleDashboard.account.equity)}</span> · virtual money
                 </span>
               ) : (
-                'Not connected. Balance and equity show once a demo account is linked.'
+                <UnavailableNote>Balance and equity will come from MT5 via the connector.</UnavailableNote>
               )
             }
           />
@@ -184,8 +200,8 @@ export default function DashboardPage() {
             label="Research progress"
             icon={ListChecks}
             sample={sample}
-            value={sample ? sampleDashboard.research.candidates : 0}
-            unit={<Term k="strategyCandidate">candidates</Term>}
+            value={sample ? sampleDashboard.research.candidates : '—'}
+            unit={sample ? <Term k="strategyCandidate">candidates</Term> : undefined}
             footer={
               sample ? (
                 <span className="line-clamp-2">
@@ -193,7 +209,7 @@ export default function DashboardPage() {
                   {sampleDashboard.research.currentTask}
                 </span>
               ) : (
-                'No research task is running.'
+                <UnavailableNote>AI research tasks arrive in a later phase.</UnavailableNote>
               )
             }
           />
@@ -202,7 +218,7 @@ export default function DashboardPage() {
 
       <motion.div variants={staggerItem} className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <PerformanceOverview sample={sample} className="xl:col-span-2" />
-        <RecentActivity sample={sample} />
+        <RecentActivity />
       </motion.div>
 
       <motion.div variants={staggerItem}>
@@ -224,33 +240,49 @@ const principles = [
   { icon: Scale, title: 'Risk before profit', text: 'Every result shows drawdown and assumptions.' },
 ];
 
-const setupSteps = [
-  { label: 'Connect MetaTrader 5', detail: 'Install the Windows connector beside MT5.', to: '/connections' },
-  { label: 'Add your first robot', detail: 'Import an Expert Advisor or design your own.', to: '/robots' },
-  { label: 'Run a first backtest', detail: 'Check how it behaved on historical prices.', to: '/backtesting' },
-];
-
-/** Real (not sample) setup state — in Phase 1 no step can be completed yet. */
+/** Real setup state. Only account creation can be completed in this version. */
 function SetupChecklist() {
+  const steps = [
+    { label: 'Create your account', detail: 'Signed in and protected by the database’s access rules.', done: true, to: '/account' },
+    { label: 'Connect MetaTrader 5', detail: 'Needs the Windows connector — later phase.', done: false, to: '/connections' },
+    { label: 'Add your first robot', detail: 'The robot library arrives in a later phase.', done: false, to: '/robots' },
+    { label: 'Run a first backtest', detail: 'Runs in MT5 once it is connected.', done: false, to: '/backtesting' },
+  ];
+  const done = steps.filter((s) => s.done).length;
   return (
     <section aria-labelledby="setup-title" className="surface flex flex-col p-5 sm:p-6">
       <div className="flex items-center justify-between gap-2">
         <h2 id="setup-title" className="text-fg text-md font-semibold">
           Getting started
         </h2>
-        <span className="text-fg-3 num text-xs">0 of 3 done</span>
+        <span className="text-fg-3 num text-xs">
+          {done} of {steps.length} done
+        </span>
       </div>
-      <div className="bg-line-soft mt-3 h-1 overflow-hidden rounded-full" role="progressbar" aria-valuenow={0} aria-valuemin={0} aria-valuemax={3} aria-label="Setup progress">
-        <div className="brand-gradient h-full w-0" />
+      <div
+        className="bg-line-soft mt-3 h-1 overflow-hidden rounded-full"
+        role="progressbar"
+        aria-valuenow={done}
+        aria-valuemin={0}
+        aria-valuemax={steps.length}
+        aria-label="Setup progress"
+      >
+        <div className="brand-gradient h-full transition-[width] duration-500" style={{ width: `${(done / steps.length) * 100}%` }} />
       </div>
       <ol className="mt-4 flex-1 space-y-1">
-        {setupSteps.map((s, i) => (
+        {steps.map((s, i) => (
           <li key={s.label}>
             <Link to={s.to} className="hover:bg-raised-hover group -mx-2 flex items-start gap-3 rounded-md p-2 transition-colors">
-              <Circle className="text-fg-3 mt-0.5 size-4 shrink-0" aria-hidden />
+              {s.done ? (
+                <CircleCheck className="text-accent mt-0.5 size-4 shrink-0" aria-hidden />
+              ) : (
+                <Circle className="text-fg-3 mt-0.5 size-4 shrink-0" aria-hidden />
+              )}
               <span className="min-w-0 flex-1">
-                <span className="text-fg block text-sm font-medium">
-                  <span className="sr-only">Step {i + 1}, not done: </span>
+                <span className={cn('block text-sm font-medium', s.done ? 'text-fg-2' : 'text-fg')}>
+                  <span className="sr-only">
+                    Step {i + 1}, {s.done ? 'done' : 'not done'}:{' '}
+                  </span>
                   {s.label}
                 </span>
                 <span className="text-fg-3 block text-xs">{s.detail}</span>
@@ -260,23 +292,51 @@ function SetupChecklist() {
           </li>
         ))}
       </ol>
-      <p className="text-fg-3 border-line-soft mt-3 border-t pt-3 text-xs leading-relaxed">
-        Connecting MT5 arrives in a later phase. Until then, every page is a design preview you can explore freely.
-      </p>
     </section>
   );
 }
 
+function UnavailableNote({ children }: { children: ReactNode }) {
+  return (
+    <span className="text-fg-3 flex items-start gap-1.5">
+      <CircleDashed className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      <span>
+        <span className="sr-only">Not available yet. </span>
+        {children}
+      </span>
+    </span>
+  );
+}
+
+/** Performance series. No real equity source exists in this version, so real mode is honestly empty. */
+function usePerformanceSeries(sample: boolean, days: number): EquitySeries {
+  return useMemo(
+    () =>
+      sample
+        ? { source: { kind: 'sample' }, currency: 'USD', timeBasis: 'utc', points: sampleEquity.slice(-days), freshness: { state: 'sample' } }
+        : {
+            source: { kind: 'none' },
+            currency: 'USD',
+            timeBasis: 'utc',
+            points: [],
+            freshness: { state: 'unavailable', reason: 'No backtest or demo-account data source exists yet. Equity data will come from MT5 in a later phase.' },
+          },
+    [sample, days],
+  );
+}
+
 function PerformanceOverview({ sample, className }: { sample: boolean; className?: string }) {
+  const { setShowSampleData } = usePreferences();
   const [range, setRange] = useState<Range>('6M');
-  const data = useMemo(() => sampleEquity.slice(-rangeDays[range]), [range]);
-  const monthly = useMemo(() => data.filter((_, i) => i % 30 === 0 || i === data.length - 1), [data]);
+  const series = usePerformanceSeries(sample, rangeDays[range]);
+  const monthly = useMemo(() => series.points.filter((_, i) => i % 30 === 0 || i === series.points.length - 1), [series]);
 
   return (
     <ChartContainer
       className={className}
       title="Performance overview"
-      sample={sample}
+      sample={series.source.kind === 'sample'}
+      badge={series.source.kind === 'sample' ? undefined : <FreshnessBadge freshness={series.freshness} />}
       explanation={
         <>
           The <Term k="equityCurve">equity curve</Term> shows how the account value changed over time. A steadier line usually means a
@@ -306,49 +366,76 @@ function PerformanceOverview({ sample, className }: { sample: boolean; className
         />
       }
       empty={
-        sample ? undefined : (
+        series.points.length === 0 ? (
           <EmptyState
             icon={LineChart}
             title="No performance data yet"
-            description="Charts appear here after a backtest has been recorded or a robot has traded on a demo account."
+            description="This chart draws real equity data once a backtest has been recorded or a robot has traded on a demo account. Both need the MT5 connector, which arrives in a later phase."
             actions={
-              <Button asChild variant="secondary" size="sm">
-                <Link to="/backtesting">Set up a backtest</Link>
+              <Button variant="secondary" size="sm" onClick={() => setShowSampleData(true)}>
+                Preview with sample data
               </Button>
             }
           />
-        )
+        ) : undefined
       }
       height={300}
     >
-      <EquityChart data={data} sample />
+      <EquityChart data={series.points} sample={series.source.kind === 'sample'} />
     </ChartContainer>
   );
 }
 
-function RecentActivity({ sample }: { sample: boolean }) {
+/** Real account events from the audit log, updated live when Realtime is available. */
+function RecentActivity() {
+  const events = useRecentAuditEvents(5);
+  const prefs = useDisplayPrefs();
+  const live = useLiveStatus();
   return (
     <section aria-labelledby="activity-title" className="surface flex flex-col p-5 sm:p-6">
       <div className="mb-5 flex items-center justify-between gap-2">
         <h2 id="activity-title" className="text-fg text-md font-semibold">
           Recent activity
         </h2>
-        {sample && <PreviewTag />}
+        <LiveIndicator status={live.activity} />
       </div>
-      {sample ? (
-        <ol className="-mb-5">
-          {sampleActivity.slice(0, 5).map((e, i, arr) => (
-            <ActivityItem key={e.id} event={e} last={i === arr.length - 1} />
+      {events.isPending ? (
+        <div className="space-y-4" role="status" aria-label="Loading activity">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex gap-3.5">
+              <Skeleton className="size-8 rounded-full" />
+              <div className="flex-1 space-y-2 pt-1">
+                <Skeleton className="h-3.5 w-1/2" />
+                <Skeleton className="h-3 w-4/5" />
+              </div>
+            </div>
           ))}
-        </ol>
+        </div>
+      ) : events.isError ? (
+        <Callout
+          tone="danger"
+          title="Activity couldn’t be loaded"
+          actions={
+            <Button size="sm" variant="secondary" onClick={() => void events.refetch()}>
+              Retry
+            </Button>
+          }
+        >
+          {toAppError(events.error).userMessage}
+        </Callout>
+      ) : events.data.events.length === 0 ? (
+        <EmptyState size="sm" icon={Activity} title="No activity yet" description="Sign-ins and changes to your profile or settings are recorded here." />
       ) : (
-        <EmptyState
-          size="sm"
-          icon={Activity}
-          title="No activity yet"
-          description="Completed backtests, new strategy candidates, connection changes and approval requests will be listed here."
-        />
+        <>
+          <AuditEventList events={events.data.events} prefs={prefs} />
+          <Link to="/account" className="text-accent border-line-soft mt-5 border-t pt-4 text-sm font-medium hover:underline">
+            View all account activity
+          </Link>
+        </>
       )}
+      <p className="text-fg-3 mt-4 text-xs">
+        Backtest, robot and connector events will appear here once those systems exist.
+      </p>
     </section>
   );
 }

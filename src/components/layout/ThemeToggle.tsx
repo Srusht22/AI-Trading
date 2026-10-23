@@ -1,16 +1,17 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { Moon, Sun } from 'lucide-react';
 import { IconButton } from '@/components/ui';
-import { usePreferences } from '@/lib/preferences';
+import { useThemeControl } from '@/lib/theme';
 import { transition } from '@/lib/motion';
 
 export function ThemeToggle() {
-  const { theme, toggleTheme } = usePreferences();
+  const { theme, toggleTheme, saving } = useThemeControl();
   const next = theme === 'dark' ? 'light' : 'dark';
   return (
     <IconButton
       label={`Switch to ${next} theme`}
       onClick={toggleTheme}
+      aria-busy={saving || undefined}
       icon={
         <AnimatePresence mode="wait" initial={false}>
           <motion.span

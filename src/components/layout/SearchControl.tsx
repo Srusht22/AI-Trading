@@ -2,9 +2,10 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog } from 'radix-ui';
 import { BookOpen, CornerDownLeft, Eye, Moon, PanelLeft, Search, type LucideIcon } from 'lucide-react';
-import { primaryNav } from '@/config/navigation';
+import { primaryNav, secondaryNav } from '@/config/navigation';
 import { glossary } from '@/content/glossary';
 import { usePreferences } from '@/lib/preferences';
+import { useThemeControl } from '@/lib/theme';
 import { cn } from '@/lib/cn';
 
 interface Result {
@@ -32,7 +33,8 @@ export function SearchControl() {
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLUListElement>(null);
   const navigate = useNavigate();
-  const { toggleTheme, theme, sidebarCollapsed, setSidebarCollapsed, showSampleData, setShowSampleData } = usePreferences();
+  const { sidebarCollapsed, setSidebarCollapsed, showSampleData, setShowSampleData } = usePreferences();
+  const { theme, toggleTheme } = useThemeControl();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -49,7 +51,7 @@ export function SearchControl() {
   }, []);
 
   const all = useMemo<Result[]>(() => {
-    const pages: Result[] = primaryNav.map((n) => ({
+    const pages: Result[] = [...primaryNav, ...secondaryNav].map((n) => ({
       id: `page-${n.id}`,
       group: 'Pages',
       title: n.label,

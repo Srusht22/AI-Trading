@@ -3,6 +3,7 @@ import { Popover } from 'radix-ui';
 import { Info } from 'lucide-react';
 import { glossary, type GlossaryKey } from '@/content/glossary';
 import { cn } from '@/lib/cn';
+import { useBeginnerHelp } from '@/lib/help';
 
 interface InfoTipProps {
   title?: ReactNode;
@@ -17,6 +18,8 @@ interface InfoTipProps {
  * Enter/Space so it works for keyboard and touch users, not just mouse hover.
  */
 export function InfoTip({ title, children, more, label, className }: InfoTipProps) {
+  const enabled = useBeginnerHelp();
+  if (!enabled) return null;
   return (
     <Popover.Root>
       <Popover.Trigger asChild>

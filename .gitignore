@@ -4,3 +4,17 @@ dist
 .DS_Store
 coverage
 *.tsbuildinfo
+
+# Environment files with real values (templates are committed)
+.env
+.env.*
+!.env.example
+!.env.server.example
+
+# Supabase local state
+supabase/.branches
+supabase/.temp
+
+# Test output
+test-results
+playwright-report

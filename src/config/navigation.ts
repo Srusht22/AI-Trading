@@ -9,6 +9,7 @@ import {
   PlugZap,
   Settings,
   Sparkles,
+  UserRound,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -97,7 +98,19 @@ export const primaryNav: NavItem[] = [
   },
 ];
 
+/** Pages reached from the workspace menu rather than the sidebar. */
+export const secondaryNav: NavItem[] = [
+  {
+    id: 'account',
+    label: 'Account',
+    path: '/account',
+    icon: UserRound,
+    description: 'Your profile, password, sessions and security activity.',
+    keywords: ['profile', 'password', 'sign out', 'security', 'sessions'],
+  },
+];
+
 export function navItemForPath(pathname: string): NavItem | undefined {
   if (pathname === '/') return primaryNav[0];
-  return primaryNav.find((item) => item.path !== '/' && pathname.startsWith(item.path));
+  return [...primaryNav, ...secondaryNav].find((item) => item.path !== '/' && pathname.startsWith(item.path));
 }

@@ -26,7 +26,7 @@ export function EquityChart({ data, showBalance = true, sample, color = 'var(--t
   const ticks = niceTicks(min, max, 5);
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
+    <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 640, height: 240 }}>
       <ComposedChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
         <defs>
           <linearGradient id={`${id}-fill`} x1="0" y1="0" x2="0" y2="1">
