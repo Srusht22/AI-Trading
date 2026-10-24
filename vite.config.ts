@@ -27,6 +27,18 @@ function guardPublicEnv(): Plugin {
             throw new Error(`${name} looks like a privileged key. Privileged keys must never be exposed to the browser; use the publishable/anon key.`);
           }
         }
+        // Hosted builds must point at a hosted project over TLS — never at a
+        // developer's local stack — and local builds are never labelled hosted.
+        const appEnv = env.VITE_APP_ENV ?? 'development';
+        if (!['development', 'staging', 'production'].includes(appEnv)) {
+          throw new Error(`VITE_APP_ENV must be development, staging or production (got "${appEnv}").`);
+        }
+        if (appEnv !== 'development' && env.VITE_SUPABASE_URL) {
+          const url = new URL(env.VITE_SUPABASE_URL);
+          if (url.protocol !== 'https:' || ['localhost', '127.0.0.1', '::1'].includes(url.hostname)) {
+            throw new Error(`A ${appEnv} build must use a hosted Supabase project over https, not ${url.origin}.`);
+          }
+        }
       },
     };
   }
@@ -37,7 +49,7 @@ function guardPublicEnv(): Plugin {
    * frame-ancestors, which only works as a header). Dev mode is excluded
    * because Vite's HMR needs inline scripts.
    */
-  function securityHeadersPlugin(supabaseUrl: string | undefined): Plugin {
+  function securityHeadersPlugin(supabaseUrl: string | undefined, appEnv: string | undefined): Plugin {
     return {
       name: 'tradepilot:security-headers',
       apply: 'build',
@@ -46,15 +58,17 @@ function guardPublicEnv(): Plugin {
         return [{ tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: contentSecurityPolicy(supabaseUrl, { forMeta: true }) }, injectTo: 'head-prepend' }];
       },
       generateBundle() {
-        if (supabaseUrl) this.emitFile({ type: 'asset', fileName: '_headers', source: headersFile(supabaseUrl) });
+        // Everything except production is kept out of search engines.
+        if (supabaseUrl) this.emitFile({ type: 'asset', fileName: '_headers', source: headersFile(supabaseUrl, { noindex: appEnv !== 'production' }) });
       },
     };
   }
 
   export default defineConfig(({ mode }) => {
-    const supabaseUrl = loadEnv(mode, process.cwd(), 'VITE_').VITE_SUPABASE_URL;
+    const publicEnv = loadEnv(mode, process.cwd(), 'VITE_');
+    const supabaseUrl = publicEnv.VITE_SUPABASE_URL;
     return {
-    plugins: [guardPublicEnv(), securityHeadersPlugin(supabaseUrl), react(), tailwindcss()],
+    plugins: [guardPublicEnv(), securityHeadersPlugin(supabaseUrl, publicEnv.VITE_APP_ENV), react(), tailwindcss()],
     preview: { headers: supabaseUrl ? securityHeaders(supabaseUrl) : {} },
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },

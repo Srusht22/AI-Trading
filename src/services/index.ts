@@ -7,6 +7,7 @@ import { createAuthService } from './supabase/auth';
 import { createProfileService } from './supabase/profiles';
 import { createRealtimeService } from './supabase/realtime';
 import { createSettingsService } from './supabase/settings';
+import { createAgentService, createTaskService } from './supabase/tasks';
 
 export type { Services } from './types';
 
@@ -19,5 +20,7 @@ export function createSupabaseServices(config: PublicConfig, origin: string, cli
     settings: createSettingsService(c),
     audit: createAuditService(c),
     realtime: createRealtimeService(c),
+    tasks: createTaskService(c),
+    agents: createAgentService(c),
   };
 }

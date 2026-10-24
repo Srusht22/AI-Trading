@@ -2,11 +2,14 @@
 
 A personal workspace for researching, testing and understanding Forex trading robots (MetaTrader 5 Expert Advisors).
 
-> **Status: Phase 2 — backend foundation.** Real authentication (Supabase Auth), a Postgres database with Row-Level
-> Security, persisted profile/settings, a server-written audit log and live updates for those records. Nothing is
-> connected to MetaTrader 5, a broker or an AI service yet: those views show explicit "unavailable" states, and any
-> invented figures appear only in an opt-in, clearly labelled **Sample data** preview. See [docs/backend.md](docs/backend.md)
-> and, before any hosted deployment, [docs/security.md](docs/security.md).
+> **Status: Phase 3 — hosting foundation and durable jobs.** Real authentication (Supabase Auth), Postgres with
+> Row-Level Security, persisted profile/settings, a server-written audit log, and now a durable Postgres task queue
+> with authenticated worker agents. The one runnable task is a harmless **health check** run by a diagnostics agent on
+> your own computer (Connections › Diagnostics). The app is prepared for Cloudflare Pages + Pages Functions and verified
+> on Cloudflare's local runtime; **no hosted deployment exists yet**. Nothing is connected to MetaTrader 5, a broker or an
+> AI service: those task types are registered but refused, those views show "unavailable", and invented figures appear
+> only in an opt-in, labelled **Sample data** preview. See [docs/backend.md](docs/backend.md), [docs/tasks.md](docs/tasks.md),
+> [docs/deployment.md](docs/deployment.md) and [docs/security.md](docs/security.md).
 
 ## Quick start
 
@@ -23,6 +26,11 @@ npm run test:db           # pgTAP database/RLS tests
 npm run test:integration  # services against the local stack
 npm run test:e2e          # Playwright: dev server + production build under its CSP
 npm run db:types          # regenerate database types (db:types:check detects drift)
+
+npm run build && npm run pages:dev          # production build + Pages Functions locally (http://127.0.0.1:8788)
+npm run agent:register -- "My laptop"       # trusted machine: registers a diagnostics agent (.env.agent.local)
+npm run agent:diagnostics                   # run the agent; then Connections › Run health check
+npm run verify:deployment -- <url>          # check headers/routes/API auth on a running deployment
 ```
 
 Requires Node 20+ and Docker. Without `.env.local` the app shows a configuration screen instead of any data. The app
@@ -58,11 +66,16 @@ supabase/
   migrations/             Versioned SQL: schema, constraints, triggers, grants, RLS policies
   tests/database/         pgTAP tests for constraints and RLS
   rollbacks/              Manual down-migrations
-scripts/                  Owner bootstrap, bundle secret scan (server-side tooling)
+functions/                Cloudflare Pages Functions (routing only) — /api/health, /api/agent/<action>
+server/                   Server-side handlers used by the Functions (agent protocol, headers, config)
+agent/                    Reference diagnostics agent (Node, talks only to the agent API)
+scripts/                  Owner/agent admin, deploy + guarded migration push, deployment verification, secret scan
 tests/integration/        Real services against the local stack
 tests/e2e/                Playwright browser tests
 docs/backend.md           Architecture, data flow, security model, setup, verification
-docs/security.md          Session-security review, accepted risks, pre-deployment checklist
+docs/security.md          Security review, accepted risks, pre-deployment checklist
+docs/tasks.md             Task queue schema, state machine, agent protocol, leases/retries, troubleshooting
+docs/deployment.md        Hosting architecture, environments, staging, deploy/verify/rollback, costs
 ```
 
 ## Design principles
@@ -78,9 +91,9 @@ docs/security.md          Session-security review, accepted risks, pre-deploymen
 
 ## Phase boundary
 
-Implemented: authentication, owner model, profile/settings persistence, audit log, realtime for those records.
+Implemented: authentication, owner model, profile/settings persistence, audit log, realtime, the durable task queue
+with agent dispatch (health check only), hosting/deployment tooling for Cloudflare Pages.
 Not implemented (later phases): the Windows MT5 connector, market/account data ingestion, robot library, MQL5
-compilation, backtests, demo execution, AI-provider integration, strategy generation, job infrastructure and VPS
-provisioning. Integration points are typed and isolated — `src/config/integrations.ts` for status,
+compilation, backtests, demo execution, AI-provider integration, strategy generation and VPS provisioning. Integration points are typed and isolated — `src/config/integrations.ts` for status,
 `src/domain/marketData.ts` and `src/domain/freshness.ts` for future data, and `usePreviewNotice()` call sites for actions
 that will become real operations.

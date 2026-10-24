@@ -1,6 +1,10 @@
 import '@testing-library/jest-dom/vitest';
 import { afterEach } from 'vitest';
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
+
+// Pages are lazy-loaded chunks; under a parallel run the first render can take
+// longer than the 1 s default, which made navigation tests flaky.
+configure({ asyncUtilTimeout: 4000 });
 
 afterEach(() => {
   cleanup();

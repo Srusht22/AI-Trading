@@ -1,6 +1,7 @@
 import type { AuditEvent } from '@/domain/audit';
 import type { Profile } from '@/domain/profile';
 import type { SettingsPatch, UserSettings } from '@/domain/settings';
+import type { Agent, Task, TaskAttempt, TaskType } from '@/domain/tasks';
 
 /**
  * Service contracts. UI code depends only on these interfaces; the Supabase
@@ -105,11 +106,30 @@ export interface RealtimeService {
    */
   watchRows(options: {
     channel: string;
-    table: 'user_settings' | 'audit_events';
-    filter: string;
+    table: 'user_settings' | 'audit_events' | 'tasks' | 'agents';
+    /** PostgREST-style filter, e.g. `owner_user_id=eq.<id>`; omit to rely on RLS alone. */
+    filter?: string;
     onChange: () => void;
     onStatus: (status: LiveStatus) => void;
   }): () => void;
+}
+
+export interface TaskService {
+  /** Newest first, own tasks only (RLS). */
+  listRecent(userId: string, limit: number): Promise<Task[]>;
+  listAttempts(taskId: string): Promise<TaskAttempt[]>;
+  listTypes(): Promise<TaskType[]>;
+  /**
+   * Submits a task. Calling again with the same idempotency key returns the
+   * original task, so a retried request never creates a duplicate.
+   */
+  submit(taskType: string, payload: Record<string, unknown>, idempotencyKey: string): Promise<Task>;
+  cancel(taskId: string): Promise<Task>;
+}
+
+export interface AgentService {
+  /** Registered agents (owner only; RLS). */
+  list(): Promise<Agent[]>;
 }
 
 export interface Services {
@@ -119,4 +139,6 @@ export interface Services {
   settings: SettingsService;
   audit: AuditService;
   realtime: RealtimeService;
+  tasks: TaskService;
+  agents: AgentService;
 }

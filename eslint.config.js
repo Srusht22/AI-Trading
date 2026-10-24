@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'src/lib/supabase/database.generated.ts', 'test-results', 'playwright-report'] },
+  { ignores: ['dist', 'src/lib/supabase/database.generated.ts', 'test-results', 'playwright-report', '.pages-e2e', '.wrangler'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],

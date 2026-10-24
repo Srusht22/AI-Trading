@@ -35,7 +35,19 @@ export const WRITABLE_COLUMNS = {
     update: ['date_format', 'display_currency', 'notification_preferences', 'number_format', 'show_beginner_help', 'theme', 'timezone'],
   },
   audit_events: { insert: [], update: [] },
+  // Phase 3 queue: read-only for clients; writes go through submit_task / cancel_task.
+  task_types: { insert: [], update: [] },
+  tasks: { insert: [], update: [] },
+  task_attempts: { insert: [], update: [] },
+  agents: { insert: [], update: [] },
 } as const;
+
+/**
+ * Functions the browser may call. agent_* and admin_* are executable only by
+ * service_role (the agent API and trusted scripts), so they are left out of
+ * the client type entirely.
+ */
+type ServerOnlyFunction = `agent_${string}` | `admin_${string}`;
 
 type GenTables = Generated['public']['Tables'];
 type Writable = typeof WRITABLE_COLUMNS;
@@ -46,11 +58,16 @@ type Narrowed<T extends keyof GenTables & keyof Writable> = Omit<GenTables[T], '
 };
 
 export type Database = Omit<Generated, 'public'> & {
-  public: Omit<Generated['public'], 'Tables'> & {
+  public: Omit<Generated['public'], 'Tables' | 'Functions'> & {
     Tables: {
       profiles: Narrowed<'profiles'>;
       user_settings: Narrowed<'user_settings'>;
       audit_events: Narrowed<'audit_events'>;
+      task_types: Narrowed<'task_types'>;
+      tasks: Narrowed<'tasks'>;
+      task_attempts: Narrowed<'task_attempts'>;
+      agents: Narrowed<'agents'>;
     };
+    Functions: Omit<Generated['public']['Functions'], Extract<keyof Generated['public']['Functions'], ServerOnlyFunction>>;
   };
 };

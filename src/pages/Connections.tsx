@@ -11,14 +11,13 @@ import {
   Laptop,
   Minus,
   RefreshCw,
-  ScrollText,
   Server,
-  Stethoscope,
   UserRound,
   type LucideIcon,
 } from 'lucide-react';
 import { Badge, Button, Callout, EmptyState, SectionHeader, Term, Tooltip } from '@/components/ui';
 import { ConnectionStateIcon } from '@/components/domain/ConnectionStatus';
+import { DiagnosticsSection } from '@/components/domain/DiagnosticsSection';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { connectionStateLabel, type ConnectionState } from '@/config/integrations';
 import { usePreviewNotice } from '@/lib/previewNotice';
@@ -166,23 +165,7 @@ export default function ConnectionsPage() {
         </div>
       </div>
 
-      <section aria-labelledby="diag-title" className="surface mt-6 p-5 sm:p-6">
-        <SectionHeader
-          id="diag-title"
-          title={
-            <>
-              <ScrollText className="text-fg-3 size-[18px]" aria-hidden /> Logs & diagnostics
-            </>
-          }
-          description="Technical messages from the connector, useful when something goes wrong."
-          actions={
-            <Button size="sm" variant="secondary" leadingIcon={<Stethoscope />} onClick={() => later('Run diagnostics', 'Diagnostics will check the connector version, MT5 login, clock drift and network latency, then explain any problems in plain English.')}>
-              Run diagnostics
-            </Button>
-          }
-        />
-        <EmptyState size="sm" icon={ScrollText} title="No logs yet" description="Connector logs appear once a connector has been paired with this workspace." />
-      </section>
+      <DiagnosticsSection />
     </>
   );
 }

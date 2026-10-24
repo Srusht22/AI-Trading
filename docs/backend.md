@@ -1,8 +1,14 @@
-# TradePilot AI — Backend, authentication and data architecture (Phase 2)
+# TradePilot AI — Backend, authentication and data architecture (Phases 2–3)
 
 This document describes what is implemented in Phase 2, how data flows, how
 to set it up, and how it is verified. It is deliberately precise about what
 does **not** exist yet.
+
+Phase 3 adds a durable task queue with agent dispatch
+([tasks.md](tasks.md)) and the online-hosting foundation — Cloudflare Pages +
+Pages Functions, environment separation, deployment and verification tooling
+([deployment.md](deployment.md)). The sections below are updated where Phase 3
+changed them.
 
 ## 1. Decisions
 
@@ -13,7 +19,8 @@ does **not** exist yet.
 | Authorization | RLS policies + column-level grants + SECURITY DEFINER functions | Enforced by the database regardless of what the browser does. |
 | Real-time | Supabase Realtime `postgres_changes`, two tables only | Delivery respects RLS; no custom socket server. |
 | Client data access | Typed service layer (`src/services`) + TanStack Query hooks (`src/hooks`) | Pages never build queries; every response is validated with zod. |
-| Server-side privileged work | Node scripts run with the service-role key (`scripts/`) | The only privileged operation in Phase 2 is the owner bootstrap. |
+| Server-side privileged work | Node scripts run with the service-role key (`scripts/`); Pages Functions (`functions/`, `server/`) | Owner bootstrap and agent registration (scripts); the agent protocol (Functions, Phase 3). |
+| Background work | Postgres task queue + agents that run outside the browser (Phase 3) | Durable, transactional, no extra paid service. |
 
 No second database, auth system or state library was introduced. Device-only UI
 state (sidebar layout, sample-data preview) stays in `localStorage`; everything
@@ -92,11 +99,23 @@ SQLSTATE `28000`, shown to the user as "session expired". See
   (`database.types.check.ts`), and `tests/integration/types.test.ts` proves the
   list equals `information_schema.column_privileges`.
 
+### Task queue (migration `20261025090000_task_queue.sql`, Phase 3)
+
+`task_types`, `tasks`, `task_attempts`, `agents` (public, read-only for the
+owner under RLS) and `private.agent_credentials` / `private.task_leases`.
+Writes only through `submit_task` / `cancel_task` (owner, live session) and
+the service-role `agent_*` / `admin_*` functions; a trigger enforces the
+state machine for every role. New audit events: `task.submitted`,
+`task.cancel_requested`, `task.succeeded`, `task.failed`, `agent.registered`,
+`agent.revoked`. Details: [tasks.md](tasks.md). Rollback:
+`supabase/rollbacks/20261025090000_task_queue.down.sql`.
+
 ### Planned domain tables (not created yet)
 
 Robots and versions, strategy specifications and source versions, backtest
 configurations and reports, demo accounts and trades, research experiments,
-approval requests, connector registrations and heartbeats. They will follow
+approval requests. (Connector registration and heartbeats now exist as
+`agents`.) They will follow
 the same pattern: `user_id` FK, RLS restricted to the owner via
 `public.is_owner()`, audit triggers. None are created in Phase 2 because no
 code would populate them.
@@ -141,16 +160,20 @@ are documented in [security.md](security.md).
 
 ## 5. Real-time scope
 
-Live subscriptions exist only for real Phase 2 sources:
+Live subscriptions exist only for real sources:
 
 * `user_settings` (own row) → settings and theme update across tabs/devices;
-* `audit_events` (own events) → the dashboard and account activity update.
+* `audit_events` (own events) → the dashboard and account activity update;
+* `tasks` (own tasks) and `agents` (owner only) → Connections › Diagnostics (Phase 3).
+
+When a subscription becomes live again after a disconnect, its queries are
+refetched (Realtime does not replay missed changes).
 
 The UI shows **Live** only after Realtime confirms the database subscription,
 and otherwise **Auto-refresh** (data refreshes after the user's own changes and
 on tab focus). Channels are removed on unmount and sign-out.
 
-No market, account, robot, backtest or connector data exists. Those views show
+No market, account, robot, backtest or MT5 connector data exists. Those views show
 explicit `unavailable` states (`src/domain/freshness.ts`,
 `src/config/integrations.ts`) and empty charts — never generated values. The
 chart components accept typed series (`EquitySeries`, `PriceBar`) with
@@ -190,9 +213,13 @@ users to sign up"; local — set `enable_signup = false` under `[auth]` in
 `supabase/config.toml` and restart. The sign-up page reads the auth server's
 public settings and shows "registrations are closed".
 
-### Hosted deployment (not done in Phase 2)
+### Hosted deployment
 
-1. Create a Supabase project; `npx supabase link` then `npx supabase db push`.
+Phase 3 replaces the outline below with a full procedure — environments,
+guarded migrations, Cloudflare Pages deploy, staging protection, verification
+and rollback: **[deployment.md](deployment.md)**. Summary:
+
+1. Create a Supabase project per environment; push migrations with the guarded `npm run db:push`.
 2. In Auth settings: site URL = your domain; redirect URLs exactly
    `https://your-domain/sign-in` and `https://your-domain/reset-password`;
    configure SMTP (the built-in sender is rate-limited); keep "Confirm email"
@@ -213,6 +240,10 @@ public settings and shows "registrations are closed".
 | `npm run test:e2e` | Playwright in a real browser against the local stack: sign-up → email confirmation → owner gate, reset password, persistence across reload, cross-tab Realtime, honest dashboard, mobile layout; plus the **production build** under its CSP/headers (no violations, injected script blocked, framing refused) |
 | `npm run db:types:check` | Generated types match the live schema |
 | `npm run verify` | lint, typecheck, unit tests, build, bundle secret scan |
+| `npm run test:db:local` | the pgTAP suite with plain `psql` against `DATABASE_URL` (stacks not started by the Supabase CLI) |
+| `npm run pages:dev` | production build + Pages Functions on Cloudflare's local runtime (port 8788) |
+| `npm run verify:deployment -- <url>` | headers, routes, API auth and bundle checks on a running deployment's real responses |
+| `npx playwright test --project=pages` | E2E on the Pages runtime: Function headers, deep links, a real agent running a health check requested from the browser |
 
 Integration and E2E tests create users and reassign the owner, so they refuse
 to run against non-local URLs unless `ALLOW_REMOTE_TESTS=1`.

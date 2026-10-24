@@ -1,0 +1,16 @@
+# Cloudflare Pages project (static frontend in dist/ + Functions in functions/).
+# Only non-secret settings live here. Secrets (SUPABASE_SECRET_KEY) are set per
+# environment with `npx wrangler pages secret put SUPABASE_SECRET_KEY --project-name tradepilot`
+# or in the dashboard — never in this file.
+name = "tradepilot"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-09-01"
+
+# Preview deployments (every non-production branch, e.g. AI.Test-Branch) are the
+# protected STAGING environment. Put Cloudflare Access in front of *.tradepilot.pages.dev
+# before sharing a URL (see docs/deployment.md).
+[env.preview.vars]
+APP_ENV = "staging"
+
+[env.production.vars]
+APP_ENV = "production"

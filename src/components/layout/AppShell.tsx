@@ -6,6 +6,7 @@ import { usePreferences } from '@/lib/preferences';
 import { pageVariants } from '@/lib/motion';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
+import { EnvironmentBanner } from './EnvironmentBanner';
 
 export function ApplicationShell() {
   const { pathname, hash } = useLocation();
@@ -30,6 +31,7 @@ export function ApplicationShell() {
         className="min-h-dvh transition-[padding] duration-[220ms] ease-standard lg:pl-[var(--tp-shell-offset)]"
         style={{ ['--tp-shell-offset' as string]: sidebarCollapsed ? 'var(--tp-sidebar-collapsed)' : 'var(--tp-sidebar-expanded)' }}
       >
+        <EnvironmentBanner />
         <TopBar />
         <main id="main" tabIndex={-1} className="mx-auto w-full max-w-[1480px] px-4 pt-7 pb-16 outline-none sm:px-6 lg:px-8 lg:pt-9">
           <Suspense fallback={<PageSkeleton />}>

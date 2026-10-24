@@ -6,7 +6,7 @@ export const auditEventSchema = z.object({
   event_type: z.string(),
   resource_type: z.string(),
   resource_id: z.string().nullable(),
-  metadata: z.record(z.unknown()),
+  metadata: z.record(z.string(), z.unknown()),
   created_at: z.string(),
 });
 

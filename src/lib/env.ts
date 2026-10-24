@@ -13,9 +13,9 @@ export interface PublicConfig {
 export type ConfigResult = { ok: true; config: PublicConfig } | { ok: false; problems: string[] };
 
 const schema = z.object({
-  VITE_SUPABASE_URL: z.string({ required_error: 'VITE_SUPABASE_URL is not set.' }).url('VITE_SUPABASE_URL must be a full URL.'),
+  VITE_SUPABASE_URL: z.string({ error: 'VITE_SUPABASE_URL is not set.' }).url('VITE_SUPABASE_URL must be a full URL.'),
   VITE_SUPABASE_PUBLISHABLE_KEY: z
-    .string({ required_error: 'VITE_SUPABASE_PUBLISHABLE_KEY is not set.' })
+    .string({ error: 'VITE_SUPABASE_PUBLISHABLE_KEY is not set.' })
     .min(20, 'VITE_SUPABASE_PUBLISHABLE_KEY looks incomplete.'),
 });
 

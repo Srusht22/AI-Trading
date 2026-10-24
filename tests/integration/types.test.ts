@@ -40,8 +40,11 @@ describe.skipIf(!url)('database types match the real column privileges', () => {
     }
   });
 
-  it('the owner table is not in the API-exposed schema', async () => {
-    const { rows } = await client.query(`select 1 from information_schema.tables where table_schema = 'public' and table_name = 'app_owner'`);
+  it('owner, agent credential and lease tables are not in the API-exposed schema', async () => {
+    const { rows } = await client.query(
+      `select table_name from information_schema.tables
+        where table_schema = 'public' and table_name in ('app_owner', 'agent_credentials', 'task_leases')`,
+    );
     expect(rows).toHaveLength(0);
   });
 });

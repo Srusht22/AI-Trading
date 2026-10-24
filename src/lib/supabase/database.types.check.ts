@@ -26,5 +26,19 @@ export const e: T['audit_events']['Insert'] = { event_type: 'x.y', resource_type
 // @ts-expect-error — audit events cannot be updated by clients
 export const f: T['audit_events']['Update'] = { event_type: 'x.y' };
 
+// @ts-expect-error — tasks are created only through submit_task()
+export const h: T['tasks']['Insert'] = { task_type: 'system.health_check' };
+// @ts-expect-error — task status cannot be written by clients
+export const i: T['tasks']['Update'] = { status: 'succeeded' };
+// @ts-expect-error — agents are registered only by trusted tooling
+export const j: T['agents']['Insert'] = { display_name: 'x' };
+
+type F = Database['public']['Functions'];
+export const k: keyof F = 'submit_task';
+// @ts-expect-error — the agent protocol is not callable from the browser
+export const l: keyof F = 'agent_claim';
+// @ts-expect-error — administration is not callable from the browser
+export const m: keyof F = 'admin_register_agent';
+
 // Rows keep the precise generated shape.
 export const g: T['audit_events']['Row']['metadata'] = { fields: ['theme'] };

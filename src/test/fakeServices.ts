@@ -11,6 +11,7 @@ import { AppError } from '@/lib/errors';
 import type { AuditEvent } from '@/domain/audit';
 import type { Profile } from '@/domain/profile';
 import type { UserSettings } from '@/domain/settings';
+import { eligibleAgents, type Agent, type Task, type TaskAttempt, type TaskType } from '@/domain/tasks';
 import type { AuthChangeEvent, AuthSession, LiveStatus, Services } from '@/services/types';
 
 type Listener = (event: AuthChangeEvent, session: AuthSession | null) => void;
@@ -22,13 +23,22 @@ export interface FakeOptions {
   signupEnabled?: boolean;
   email?: string;
   displayName?: string | null;
+  agents?: Agent[];
 }
 
 export interface FakeBackend {
   services: Services;
   userId: string;
   /** Make the next call of a method reject with the given error. */
-  failNext: (method: 'settings.update' | 'settings.get' | 'profiles.update' | 'audit.listRecent' | 'auth.signIn' | 'access', error: AppError) => void;
+  failNext: (
+    method: 'settings.update' | 'settings.get' | 'profiles.update' | 'audit.listRecent' | 'auth.signIn' | 'access' | 'tasks.submit' | 'tasks.cancel',
+    error: AppError,
+  ) => void;
+  /** Simulate an agent (or the queue) changing a task. */
+  updateTask: (id: string, patch: Partial<Task>) => void;
+  tasks: () => Task[];
+  agents: () => Agent[];
+  setAgents: (agents: Agent[]) => void;
   /** Simulate a change made in another tab (bumps revision). */
   externalSettingsChange: (patch: Partial<UserSettings>) => void;
   /** Simulate the server ending the session (e.g. refresh token expired). */
@@ -65,6 +75,30 @@ export function createFakeBackend(opts: FakeOptions = {}): FakeBackend {
     updated_at: now(),
   };
   const events: AuditEvent[] = [event('account.created'), event('auth.session_started')];
+  let agents: Agent[] = opts.agents ?? [];
+  const tasks: Task[] = [];
+  const keys = new Map<string, string>();
+  const attempts: TaskAttempt[] = [];
+  const taskTypes: TaskType[] = [
+    {
+      task_type: 'system.health_check',
+      label: 'Health check',
+      description: 'Asks a diagnostics agent to report its runtime, clock offset and connection latency.',
+      available: true,
+      unavailable_reason: null,
+      required_capability: 'system.health_check',
+      min_agent_version: '0.1.0',
+    },
+    {
+      task_type: 'mt5.backtest',
+      label: 'Run backtest',
+      description: 'Run a Strategy Tester backtest.',
+      available: false,
+      unavailable_reason: 'The MetaTrader 5 connector is not available yet.',
+      required_capability: 'mt5.backtest',
+      min_agent_version: '1.0.0',
+    },
+  ];
 
   function makeSession(): AuthSession {
     return {
@@ -113,6 +147,15 @@ export function createFakeBackend(opts: FakeOptions = {}): FakeBackend {
     },
     settings: () => settings,
     events: () => events,
+    updateTask: (id, patch) => {
+      const i = tasks.findIndex((t) => t.id === id);
+      if (i >= 0) tasks[i] = { ...tasks[i], ...patch, revision: tasks[i].revision + 1, updated_at: now() };
+    },
+    tasks: () => tasks,
+    agents: () => agents,
+    setAgents: (a) => {
+      agents = a;
+    },
     services: {
       auth: {
         async getSession() {
@@ -225,6 +268,79 @@ export function createFakeBackend(opts: FakeOptions = {}): FakeBackend {
           await tick();
           requireSession();
           return { timestamps: events.filter((e) => e.created_at >= since).map((e) => e.created_at), truncated: false };
+        },
+      },
+      tasks: {
+        async listRecent(_uid, limit) {
+          await tick();
+          requireSession();
+          return [...tasks].sort((a, b) => (a.created_at < b.created_at ? 1 : -1)).slice(0, limit);
+        },
+        async listAttempts(taskId) {
+          await tick();
+          requireSession();
+          return attempts.filter((a) => a.task_id === taskId);
+        },
+        async listTypes() {
+          await tick();
+          requireSession();
+          return taskTypes;
+        },
+        async submit(taskType, payload, key) {
+          await tick();
+          takeFailure('tasks.submit');
+          requireSession();
+          const existing = tasks.find((t) => t.id === keys.get(key));
+          if (existing) return existing;
+          const type = taskTypes.find((t) => t.task_type === taskType);
+          if (!type?.available) throw new AppError('unavailable', type?.unavailable_reason ?? 'Unknown task type.', { code: 'TPU01' });
+          if (eligibleAgents(agents, type, new Date()).length === 0) {
+            throw new AppError('unavailable', 'No agent that can run this task is online right now. Start a diagnostics agent and try again.', { code: 'TPU02' });
+          }
+          const t: Task = {
+            id: crypto.randomUUID(),
+            task_type: taskType,
+            payload,
+            status: 'queued',
+            created_at: now(),
+            updated_at: now(),
+            available_at: now(),
+            expires_at: new Date(Date.now() + 600_000).toISOString(),
+            claimed_by_agent: null,
+            claimed_at: null,
+            lease_expires_at: null,
+            started_at: null,
+            attempt_count: 0,
+            max_attempts: 3,
+            progress_percent: null,
+            progress_message: null,
+            result: null,
+            error: null,
+            cancel_requested_at: null,
+            completed_at: null,
+            revision: 1,
+          };
+          tasks.push(t);
+          keys.set(key, t.id);
+          return t;
+        },
+        async cancel(taskId) {
+          await tick();
+          takeFailure('tasks.cancel');
+          requireSession();
+          const t = tasks.find((x) => x.id === taskId);
+          if (!t) throw new AppError('not_found', 'That task could not be found.');
+          if (t.status === 'queued') backend.updateTask(taskId, { status: 'cancelled', completed_at: now(), cancel_requested_at: now() });
+          else if (t.status === 'claimed' || t.status === 'running') backend.updateTask(taskId, { status: 'cancel_requested', cancel_requested_at: now() });
+          else throw new AppError('conflict', 'This task has already finished, so it can no longer be changed.', { code: 'TPS01' });
+          return tasks.find((x) => x.id === taskId)!;
+        },
+      },
+      agents: {
+        async list() {
+          await tick();
+          requireSession();
+          return agents;
         },
       },
       realtime: {

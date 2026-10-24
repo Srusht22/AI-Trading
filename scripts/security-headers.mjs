@@ -42,8 +42,12 @@ export function securityHeaders(supabaseUrl) {
   };
 }
 
-/** Netlify / Cloudflare Pages `_headers` format. */
-export function headersFile(supabaseUrl) {
-  const lines = Object.entries(securityHeaders(supabaseUrl)).map(([k, v]) => `  ${k}: ${v}`);
+/**
+ * Netlify / Cloudflare Pages `_headers` format. Applies to static assets only:
+ * Cloudflare Pages Functions responses get their headers from server/http.ts.
+ */
+export function headersFile(supabaseUrl, { noindex = false } = {}) {
+  const headers = { ...securityHeaders(supabaseUrl), ...(noindex ? { 'X-Robots-Tag': 'noindex, nofollow' } : {}) };
+  const lines = Object.entries(headers).map(([k, v]) => `  ${k}: ${v}`);
   return ['/*', ...lines, '', '/assets/*', '  Cache-Control: public, max-age=31536000, immutable', ''].join('\n');
 }

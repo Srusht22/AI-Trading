@@ -10,6 +10,7 @@ coverage
 .env.*
 !.env.example
 !.env.server.example
+!.env.agent.example
 
 # Supabase local state
 supabase/.branches
@@ -18,3 +19,8 @@ supabase/.temp
 # Test output
 test-results
 playwright-report
+
+# Cloudflare local state and secrets
+.dev.vars
+.wrangler
+.pages-e2e

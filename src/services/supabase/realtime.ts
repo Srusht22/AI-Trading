@@ -7,7 +7,7 @@ export function createRealtimeService(client: TradePilotClient): RealtimeService
       onStatus('connecting');
       const ch = client
         .channel(channel)
-        .on('postgres_changes', { event: '*', schema: 'public', table, filter }, () => onChange())
+        .on('postgres_changes', { event: '*', schema: 'public', table, ...(filter ? { filter } : {}) }, () => onChange())
         // The socket subscription ("SUBSCRIBED") is confirmed before the
         // database-changes listener is. Only report "live" once Realtime says
         // the Postgres subscription is active, otherwise early changes are missed.

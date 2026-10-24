@@ -6,7 +6,21 @@ export type Database = {
   
   "public": {
           Tables: {
-            "audit_events": {
+            "agents": {
+                  Row: {
+                    "agent_version": string | null,"allowed_capabilities": (string)[],"created_at": string,"display_name": string,"id": string,"last_heartbeat_at": string | null,"max_concurrent_tasks": number,"platform": string | null,"reported_capabilities": (string)[],"revoked_at": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "agent_version"?: string | null,"allowed_capabilities": (string)[],"created_at"?: string,"display_name": string,"id"?: string,"last_heartbeat_at"?: string | null,"max_concurrent_tasks"?: number,"platform"?: string | null,"reported_capabilities"?: (string)[],"revoked_at"?: string | null
+                  }
+                  Update: {
+                    "agent_version"?: string | null,"allowed_capabilities"?: (string)[],"created_at"?: string,"display_name"?: string,"id"?: string,"last_heartbeat_at"?: string | null,"max_concurrent_tasks"?: number,"platform"?: string | null,"reported_capabilities"?: (string)[],"revoked_at"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"audit_events": {
                   Row: {
                     "actor_user_id": string | null,"created_at": string,"event_type": string,"id": string,"metadata": NonNullable<Json>,"resource_id": string | null,"resource_type": string
                   }
@@ -34,6 +48,72 @@ export type Database = {
                   Relationships: [
                     
                   ]
+                },"task_attempts": {
+                  Row: {
+                    "agent_id": string | null,"attempt_number": number,"claimed_at": string,"ended_at": string | null,"error": Json | null,"id": string,"outcome": string | null,"started_at": string | null,"task_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "agent_id"?: string | null,"attempt_number": number,"claimed_at": string,"ended_at"?: string | null,"error"?: Json | null,"id"?: string,"outcome"?: string | null,"started_at"?: string | null,"task_id": string
+                  }
+                  Update: {
+                    "agent_id"?: string | null,"attempt_number"?: number,"claimed_at"?: string,"ended_at"?: string | null,"error"?: Json | null,"id"?: string,"outcome"?: string | null,"started_at"?: string | null,"task_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "task_attempts_agent_id_fkey"
+      columns: ["agent_id"]
+isOneToOne: false
+      referencedRelation: "agents"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "task_attempts_task_id_fkey"
+      columns: ["task_id"]
+isOneToOne: false
+      referencedRelation: "tasks"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"task_types": {
+                  Row: {
+                    "available": boolean,"description": string,"label": string,"lease_seconds": number,"max_attempts": number,"max_payload_bytes": number,"min_agent_version": string,"queue_ttl_seconds": number,"required_capability": string,"retry_base_seconds": number,"task_type": string,"unavailable_reason": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "available"?: boolean,"description": string,"label": string,"lease_seconds"?: number,"max_attempts"?: number,"max_payload_bytes"?: number,"min_agent_version"?: string,"queue_ttl_seconds"?: number,"required_capability": string,"retry_base_seconds"?: number,"task_type": string,"unavailable_reason"?: string | null
+                  }
+                  Update: {
+                    "available"?: boolean,"description"?: string,"label"?: string,"lease_seconds"?: number,"max_attempts"?: number,"max_payload_bytes"?: number,"min_agent_version"?: string,"queue_ttl_seconds"?: number,"required_capability"?: string,"retry_base_seconds"?: number,"task_type"?: string,"unavailable_reason"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"tasks": {
+                  Row: {
+                    "attempt_count": number,"available_at": string,"cancel_requested_at": string | null,"claimed_at": string | null,"claimed_by_agent": string | null,"completed_at": string | null,"created_at": string,"error": Json | null,"expires_at": string,"id": string,"idempotency_key": string,"lease_expires_at": string | null,"max_attempts": number,"origin": string,"owner_user_id": string | null,"payload": NonNullable<Json>,"progress_message": string | null,"progress_percent": number | null,"result": Json | null,"revision": number,"started_at": string | null,"status": string,"task_type": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "attempt_count"?: number,"available_at"?: string,"cancel_requested_at"?: string | null,"claimed_at"?: string | null,"claimed_by_agent"?: string | null,"completed_at"?: string | null,"created_at"?: string,"error"?: Json | null,"expires_at": string,"id"?: string,"idempotency_key": string,"lease_expires_at"?: string | null,"max_attempts": number,"origin": string,"owner_user_id"?: string | null,"payload"?: NonNullable<Json>,"progress_message"?: string | null,"progress_percent"?: number | null,"result"?: Json | null,"revision"?: number,"started_at"?: string | null,"status"?: string,"task_type": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "attempt_count"?: number,"available_at"?: string,"cancel_requested_at"?: string | null,"claimed_at"?: string | null,"claimed_by_agent"?: string | null,"completed_at"?: string | null,"created_at"?: string,"error"?: Json | null,"expires_at"?: string,"id"?: string,"idempotency_key"?: string,"lease_expires_at"?: string | null,"max_attempts"?: number,"origin"?: string,"owner_user_id"?: string | null,"payload"?: NonNullable<Json>,"progress_message"?: string | null,"progress_percent"?: number | null,"result"?: Json | null,"revision"?: number,"started_at"?: string | null,"status"?: string,"task_type"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "tasks_claimed_by_agent_fkey"
+      columns: ["claimed_by_agent"]
+isOneToOne: false
+      referencedRelation: "agents"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "tasks_task_type_fkey"
+      columns: ["task_type"]
+isOneToOne: false
+      referencedRelation: "task_types"
+      referencedColumns: ["task_type"]
+    }
+                  ]
                 },"user_settings": {
                   Row: {
                     "created_at": string,"date_format": string,"display_currency": string,"notification_preferences": NonNullable<Json>,"number_format": string,"revision": number,"show_beginner_help": boolean,"theme": string,"timezone": string,"updated_at": string,"user_id": string
@@ -57,6 +137,69 @@ export type Database = {
             "admin_assign_owner":
 { Args: { "p_email": string,"p_replace"?: boolean }; Returns: string
                            },
+"admin_recover_tasks":
+{ Args: Record<PropertyKey, never>; Returns: Json
+                           },
+"admin_register_agent":
+{ Args: { "p_capabilities": (string)[],"p_display_name": string,"p_max_concurrent_tasks"?: number,"p_token_sha256": string }; Returns: string
+                           },
+"admin_revoke_agent":
+{ Args: { "p_agent_id": string }; Returns: undefined
+                           },
+"agent_ack_cancel":
+{ Args: { "p_lease_token": string,"p_task_id": string,"p_token_sha256": string }; Returns: Json
+                           },
+"agent_claim":
+{ Args: { "p_token_sha256": string }; Returns: Json
+                           },
+"agent_complete_task":
+{ Args: { "p_lease_token": string,"p_result": Json,"p_task_id": string,"p_token_sha256": string }; Returns: Json
+                           },
+"agent_fail_task":
+{ Args: { "p_error_code": string,"p_error_message": string,"p_lease_token": string,"p_retryable": boolean,"p_task_id": string,"p_token_sha256": string }; Returns: Json
+                           },
+"agent_heartbeat":
+{ Args: { "p_agent_version": string,"p_capabilities": (string)[],"p_platform"?: string,"p_token_sha256": string }; Returns: Json
+                           },
+"agent_renew_lease":
+{ Args: { "p_lease_token": string,"p_progress_message"?: string,"p_progress_percent"?: number,"p_task_id": string,"p_token_sha256": string }; Returns: Json
+                           },
+"agent_start_task":
+{ Args: { "p_lease_token": string,"p_task_id": string,"p_token_sha256": string }; Returns: Json
+                           },
+"cancel_task":
+{ Args: { "p_task_id": string }; Returns: {
+              "attempt_count": number,
+"available_at": string,
+"cancel_requested_at": string | null,
+"claimed_at": string | null,
+"claimed_by_agent": string | null,
+"completed_at": string | null,
+"created_at": string,
+"error": Json | null,
+"expires_at": string,
+"id": string,
+"idempotency_key": string,
+"lease_expires_at": string | null,
+"max_attempts": number,
+"origin": string,
+"owner_user_id": string | null,
+"payload": NonNullable<Json>,
+"progress_message": string | null,
+"progress_percent": number | null,
+"result": Json | null,
+"revision": number,
+"started_at": string | null,
+"status": string,
+"task_type": string,
+"updated_at": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "tasks"
+        isOneToOne: true
+        isSetofReturn: false
+      } },
 "get_my_access":
 { Args: Record<PropertyKey, never>; Returns: {
               "is_owner": boolean,"owner_configured": boolean
@@ -67,7 +210,40 @@ export type Database = {
                            },
 "is_owner":
 { Args: Record<PropertyKey, never>; Returns: boolean
-                           }
+                           },
+"submit_task":
+{ Args: { "p_idempotency_key": string,"p_payload": Json,"p_task_type": string }; Returns: {
+              "attempt_count": number,
+"available_at": string,
+"cancel_requested_at": string | null,
+"claimed_at": string | null,
+"claimed_by_agent": string | null,
+"completed_at": string | null,
+"created_at": string,
+"error": Json | null,
+"expires_at": string,
+"id": string,
+"idempotency_key": string,
+"lease_expires_at": string | null,
+"max_attempts": number,
+"origin": string,
+"owner_user_id": string | null,
+"payload": NonNullable<Json>,
+"progress_message": string | null,
+"progress_percent": number | null,
+"result": Json | null,
+"revision": number,
+"started_at": string | null,
+"status": string,
+"task_type": string,
+"updated_at": string
+            }
+                          SetofOptions: {
+        from: "*"
+        to: "tasks"
+        isOneToOne: true
+        isSetofReturn: false
+      } }
           }
           Enums: {
             [_ in never]: never
