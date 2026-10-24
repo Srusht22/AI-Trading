@@ -9,7 +9,7 @@ const MAX_PAGE = 50;
 
 export function createAuditService(client: TradePilotClient): AuditService {
   return {
-    async listRecent(userId, { limit, before }) {
+    async listRecent(userId, { limit, before, eventPrefixes }) {
       const size = Math.min(Math.max(1, limit), MAX_PAGE);
       // Fetch one extra row to know whether another page exists.
       let query = client
@@ -19,6 +19,9 @@ export function createAuditService(client: TradePilotClient): AuditService {
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
         .limit(size + 1);
+      if (eventPrefixes?.length) {
+        query = query.or(eventPrefixes.map((p) => `event_type.like.${p.replace(/[^a-z_.]/g, '')}%`).join(','));
+      }
       if (before) {
         // (created_at, id) < (cursor.createdAt, cursor.id), expressed for PostgREST.
         const ts = before.createdAt;

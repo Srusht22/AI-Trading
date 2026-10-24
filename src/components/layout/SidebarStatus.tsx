@@ -4,6 +4,8 @@ import { integrationStatus, connectionStateLabel, type ConnectionState } from '@
 import { ConnectionStateIcon } from '@/components/domain/ConnectionStatus';
 import { Tooltip } from '@/components/ui';
 import { cn } from '@/lib/cn';
+import { useConnector } from '@/hooks/useMt5';
+import { connectorStateText, type ConnectorState } from '@/domain/mt5';
 
 interface Row {
   id: string;
@@ -17,17 +19,31 @@ interface Row {
 /** Compact wording for the narrow sidebar; full wording is used elsewhere. */
 const shortLabel = (s: ConnectionState) => (s === 'unavailable' ? 'Later phase' : connectionStateLabel[s]);
 
-const mt5 = integrationStatus.find((s) => s.id === 'mt5')!;
 const ai = integrationStatus.find((s) => s.id === 'ai')!;
 
-const rows: Row[] = [
-  { id: 'mt5', label: 'MT5', icon: Cpu, state: mt5.state, text: shortLabel(mt5.state), href: '/connections' },
-  { id: 'ai', label: 'AI service', icon: Sparkles, state: ai.state, text: shortLabel(ai.state), href: '/ai-analyst' },
-  { id: 'env', label: 'Mode', icon: FlaskConical, state: 'unavailable', text: 'Demo only', href: '/demo-trading' },
-];
+const mt5State: Record<ConnectorState, ConnectionState> = {
+  not_paired: 'not_configured',
+  connector_unavailable: 'not_connected',
+  connecting: 'connecting',
+  verification_required: 'connecting',
+  unsupported_terminal: 'error',
+  blocked_account_type: 'error',
+  account_changed: 'error',
+  auth_error: 'error',
+  disconnected: 'not_connected',
+  stale: 'degraded',
+  connected: 'connected',
+};
 
-/** Compact system status at the foot of the sidebar. All states are honest Phase 1 values. */
+/** Compact system status at the foot of the sidebar, from real reports. */
 export function SidebarStatus({ collapsed }: { collapsed?: boolean }) {
+  const connector = useConnector();
+  const state = connector.loading ? 'connecting' : mt5State[connector.state];
+  const rows: Row[] = [
+    { id: 'mt5', label: 'MT5', icon: Cpu, state, text: connector.loading ? 'Checking' : connectorStateText[connector.state].label.replace(/^Blocked: .*/, 'Blocked'), href: '/connections' },
+    { id: 'ai', label: 'AI service', icon: Sparkles, state: ai.state, text: shortLabel(ai.state), href: '/ai-analyst' },
+    { id: 'env', label: 'Mode', icon: FlaskConical, state: 'unavailable', text: 'Demo only', href: '/demo-trading' },
+  ];
   return (
     <div className="space-y-0.5" aria-label="System status" role="group">
       {!collapsed && <p className="eyebrow mb-2 px-3">System status</p>}

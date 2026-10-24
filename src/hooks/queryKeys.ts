@@ -11,4 +11,12 @@ export const queryKeys = {
   taskAttempts: (uid: string, taskId: string) => ['tasks', uid, 'attempts', taskId] as const,
   taskTypes: (uid: string) => ['task-types', uid] as const,
   agents: (uid: string) => ['agents', uid] as const,
+  mt5: (uid: string) => ['mt5', uid] as const,
+  mt5Connections: (uid: string) => ['mt5', uid, 'connections'] as const,
+  mt5Account: (uid: string) => ['mt5', uid, 'account'] as const,
+  mt5Snapshots: (uid: string, connectionId: string, days: number) => ['mt5', uid, 'account', 'snapshots', connectionId, days] as const,
+  mt5Symbols: (uid: string, connectionId: string) => ['mt5', uid, 'symbols', connectionId] as const,
+  mt5Quotes: (uid: string) => ['mt5', uid, 'quotes'] as const,
+  mt5Bars: (uid: string, connectionId: string, symbol: string, timeframe: string) => ['mt5', uid, 'bars', connectionId, symbol, timeframe] as const,
+  mt5Trades: (uid: string) => ['mt5', uid, 'trades'] as const,
 };

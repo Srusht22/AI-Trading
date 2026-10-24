@@ -127,6 +127,10 @@ only its path).
    staging project.
 8. **Agent**: `TRADEPILOT_API_URL=https://<staging-host> npm run agent:register -- "Staging diagnostics"`,
    then `npm run agent:diagnostics`. Run a health check from Connections.
+9. **MT5 connector**: follow [mt5-connector.md](mt5-connector.md) with the staging
+   `https://` address. If staging is behind Cloudflare Access, set
+   `TRADEPILOT_ACCESS_CLIENT_ID` / `TRADEPILOT_ACCESS_CLIENT_SECRET` in the
+   Windows environment of the connector (service token).
 
 ## 5. Production checklist
 
@@ -203,9 +207,9 @@ the providers' current pricing pages; they change):
 | Service | Free allowance relevant here | TradePilot usage |
 | --- | --- | --- |
 | Cloudflare Pages | unlimited static requests/bandwidth; 500 deploys/month | static app |
-| Pages Functions (Workers free) | 100,000 requests/day, ~10 ms CPU per request | `/api/*` only: one diagnostics agent ≈ 13,000/day (heartbeat 20 s, idle poll 10 s) |
+| Pages Functions (Workers free) | 100,000 requests/day, ~10 ms CPU per request | `/api/*` only: one diagnostics agent ≈ 13,000/day (heartbeat 20 s, idle poll 10 s); the MT5 connector up to ≈ 68,000/day in a busy market with default intervals (quotes sent only on new ticks every ≥ 2 s), ≈ 35,000 with a 5 s price interval, near zero on weekends |
 | Cloudflare Access | free for small teams (Zero Trust free plan) | staging protection |
-| Supabase free | 500 MB DB, limited projects, projects pause after a period of inactivity, Realtime connection/message quotas | tasks, agents, audit; agent heartbeats cause one Realtime message per open tab per 20 s |
+| Supabase free | 500 MB DB, limited projects, projects pause after a period of inactivity, Realtime connection/message quotas | tasks, agents, audit; MT5 data is bounded (current state + ≤ 1000 bars/series + one equity point per minute, pruned after 180 days ≈ 260k rows max); each quote change is one Realtime message per open tab |
 | pg_cron | included | one job per minute |
 
 If a limit is reached, the free plans stop serving rather than bill

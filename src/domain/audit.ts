@@ -24,7 +24,31 @@ export const auditEventLabels: Record<string, { title: string; describe: (e: Aud
   'profile.updated': { title: 'Profile updated', describe: (e) => `Changed: ${fieldList(e)}.` },
   'settings.updated': { title: 'Settings updated', describe: (e) => `Changed: ${fieldList(e)}.` },
   'owner.assigned': { title: 'Workspace owner assigned', describe: () => 'Owner access was granted by a trusted administrator.' },
+  'agent.registered': { title: 'Agent registered', describe: () => 'A worker agent was registered by trusted tooling.' },
+  'agent.pairing_created': { title: 'Pairing code created', describe: () => 'A one-time code to pair an MT5 connector was created.' },
+  'agent.paired': { title: 'Connector paired', describe: () => 'A connector on your computer paired with this workspace (read-only MT5 access).' },
+  'agent.revoked': { title: 'Agent revoked', describe: () => 'An agent’s key was revoked; it can no longer send data.' },
+  'connector.verified': { title: 'Demo account verified', describe: () => 'MetaTrader 5 reported a demo account; data publication started.' },
+  'connector.blocked': { title: 'Connection blocked', describe: (e) => blockReason(e) },
+  'connector.symbols_selected': { title: 'Symbols selected', describe: (e) => `Monitoring: ${listOf(e, 'symbols') || 'none'}.` },
+  'connector.disconnected': { title: 'Data feed disconnected', describe: () => 'You disconnected the MT5 data feed.' },
+  'connector.resumed': { title: 'Data feed reconnected', describe: (e) => (e.metadata.new_account ? 'Reconnected with a new demo account; earlier account data was removed.' : 'Reconnected; the account is verified again.') },
+  'task.submitted': { title: 'Task requested', describe: (e) => `Requested ${String(e.metadata.task_type ?? 'a task')}.` },
+  'task.succeeded': { title: 'Task finished', describe: (e) => `${String(e.metadata.task_type ?? 'A task')} completed.` },
+  'task.failed': { title: 'Task failed', describe: (e) => `${String(e.metadata.task_type ?? 'A task')} failed.` },
+  'task.cancel_requested': { title: 'Task cancelled', describe: (e) => `Cancellation requested for ${String(e.metadata.task_type ?? 'a task')}.` },
 };
+
+function listOf(e: AuditEvent, key: string): string {
+  const v = e.metadata[key];
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string').join(', ') : '';
+}
+
+function blockReason(e: AuditEvent): string {
+  return e.metadata.reason === 'account_changed'
+    ? 'The terminal switched to a different account than the one approved.'
+    : 'MetaTrader 5 reported an account that is not a demo account.';
+}
 
 const fieldNames: Record<string, string> = {
   display_name: 'display name',

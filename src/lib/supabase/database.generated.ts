@@ -8,14 +8,14 @@ export type Database = {
           Tables: {
             "agents": {
                   Row: {
-                    "agent_version": string | null,"allowed_capabilities": (string)[],"created_at": string,"display_name": string,"id": string,"last_heartbeat_at": string | null,"max_concurrent_tasks": number,"platform": string | null,"reported_capabilities": (string)[],"revoked_at": string | null
+                    "agent_version": string | null,"allowed_capabilities": (string)[],"created_at": string,"display_name": string,"id": string,"last_heartbeat_at": string | null,"max_concurrent_tasks": number,"owner_user_id": string | null,"platform": string | null,"reported_capabilities": (string)[],"revoked_at": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "agent_version"?: string | null,"allowed_capabilities": (string)[],"created_at"?: string,"display_name": string,"id"?: string,"last_heartbeat_at"?: string | null,"max_concurrent_tasks"?: number,"platform"?: string | null,"reported_capabilities"?: (string)[],"revoked_at"?: string | null
+                    "agent_version"?: string | null,"allowed_capabilities": (string)[],"created_at"?: string,"display_name": string,"id"?: string,"last_heartbeat_at"?: string | null,"max_concurrent_tasks"?: number,"owner_user_id"?: string | null,"platform"?: string | null,"reported_capabilities"?: (string)[],"revoked_at"?: string | null
                   }
                   Update: {
-                    "agent_version"?: string | null,"allowed_capabilities"?: (string)[],"created_at"?: string,"display_name"?: string,"id"?: string,"last_heartbeat_at"?: string | null,"max_concurrent_tasks"?: number,"platform"?: string | null,"reported_capabilities"?: (string)[],"revoked_at"?: string | null
+                    "agent_version"?: string | null,"allowed_capabilities"?: (string)[],"created_at"?: string,"display_name"?: string,"id"?: string,"last_heartbeat_at"?: string | null,"max_concurrent_tasks"?: number,"owner_user_id"?: string | null,"platform"?: string | null,"reported_capabilities"?: (string)[],"revoked_at"?: string | null
                   }
                   Relationships: [
                     
@@ -33,6 +33,186 @@ export type Database = {
                   }
                   Relationships: [
                     
+                  ]
+                },"mt5_account_snapshots": {
+                  Row: {
+                    "balance": number,"connection_id": string,"equity": number,"id": number,"margin": number,"margin_free": number,"margin_level": number | null,"observed_at": string,"owner_user_id": string,"profit": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "balance": number,"connection_id": string,"equity": number,"id"?: never,"margin": number,"margin_free": number,"margin_level"?: number | null,"observed_at": string,"owner_user_id": string,"profit": number
+                  }
+                  Update: {
+                    "balance"?: number,"connection_id"?: string,"equity"?: number,"id"?: never,"margin"?: number,"margin_free"?: number,"margin_level"?: number | null,"observed_at"?: string,"owner_user_id"?: string,"profit"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "mt5_account_snapshots_connection_id_fkey"
+      columns: ["connection_id"]
+isOneToOne: false
+      referencedRelation: "mt5_connections"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"mt5_account_state": {
+                  Row: {
+                    "balance": number,"connection_id": string,"credit": number,"currency": string,"currency_digits": number,"equity": number,"leverage": number | null,"margin": number,"margin_free": number,"margin_level": number | null,"observed_at": string,"owner_user_id": string,"profit": number,"received_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "balance": number,"connection_id": string,"credit": number,"currency": string,"currency_digits": number,"equity": number,"leverage"?: number | null,"margin": number,"margin_free": number,"margin_level"?: number | null,"observed_at": string,"owner_user_id": string,"profit": number,"received_at"?: string
+                  }
+                  Update: {
+                    "balance"?: number,"connection_id"?: string,"credit"?: number,"currency"?: string,"currency_digits"?: number,"equity"?: number,"leverage"?: number | null,"margin"?: number,"margin_free"?: number,"margin_level"?: number | null,"observed_at"?: string,"owner_user_id"?: string,"profit"?: number,"received_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "mt5_account_state_connection_id_fkey"
+      columns: ["connection_id"]
+isOneToOne: true
+      referencedRelation: "mt5_connections"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"mt5_bars": {
+                  Row: {
+                    "close": number,"connection_id": string,"high": number,"low": number,"open": number,"open_time": string,"owner_user_id": string,"real_volume": number | null,"received_at": string,"spread": number | null,"symbol": string,"tick_volume": number | null,"timeframe": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "close": number,"connection_id": string,"high": number,"low": number,"open": number,"open_time": string,"owner_user_id": string,"real_volume"?: number | null,"received_at"?: string,"spread"?: number | null,"symbol": string,"tick_volume"?: number | null,"timeframe": string
+                  }
+                  Update: {
+                    "close"?: number,"connection_id"?: string,"high"?: number,"low"?: number,"open"?: number,"open_time"?: string,"owner_user_id"?: string,"real_volume"?: number | null,"received_at"?: string,"spread"?: number | null,"symbol"?: string,"tick_volume"?: number | null,"timeframe"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "mt5_bars_connection_id_fkey"
+      columns: ["connection_id"]
+isOneToOne: false
+      referencedRelation: "mt5_connections"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"mt5_connections": {
+                  Row: {
+                    "account_fingerprint": string | null,"account_interval_s": number,"agent_id": string,"broker_offset_source": string | null,"broker_utc_offset_minutes": number | null,"company": string | null,"connector_version": string | null,"created_at": string,"currency": string | null,"currency_digits": number | null,"detected_trade_mode": string | null,"disconnected_at": string | null,"first_verified_at": string | null,"history_days": number,"id": string,"last_account_at": string | null,"last_bars_at": string | null,"last_deals_at": string | null,"last_orders_at": string | null,"last_positions_at": string | null,"last_quotes_at": string | null,"last_report_at": string | null,"last_snapshot_at": string | null,"last_symbols_at": string | null,"leverage": number | null,"masked_account": string | null,"owner_user_id": string,"quote_interval_ms": number,"server": string | null,"snapshot_interval_s": number,"status": string,"status_reason": string | null,"symbols_batch_id": string | null,"terminal_build": number | null,"terminal_connected": boolean | null,"updated_at": string,"verified_at": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "account_fingerprint"?: string | null,"account_interval_s"?: number,"agent_id": string,"broker_offset_source"?: string | null,"broker_utc_offset_minutes"?: number | null,"company"?: string | null,"connector_version"?: string | null,"created_at"?: string,"currency"?: string | null,"currency_digits"?: number | null,"detected_trade_mode"?: string | null,"disconnected_at"?: string | null,"first_verified_at"?: string | null,"history_days"?: number,"id"?: string,"last_account_at"?: string | null,"last_bars_at"?: string | null,"last_deals_at"?: string | null,"last_orders_at"?: string | null,"last_positions_at"?: string | null,"last_quotes_at"?: string | null,"last_report_at"?: string | null,"last_snapshot_at"?: string | null,"last_symbols_at"?: string | null,"leverage"?: number | null,"masked_account"?: string | null,"owner_user_id": string,"quote_interval_ms"?: number,"server"?: string | null,"snapshot_interval_s"?: number,"status"?: string,"status_reason"?: string | null,"symbols_batch_id"?: string | null,"terminal_build"?: number | null,"terminal_connected"?: boolean | null,"updated_at"?: string,"verified_at"?: string | null
+                  }
+                  Update: {
+                    "account_fingerprint"?: string | null,"account_interval_s"?: number,"agent_id"?: string,"broker_offset_source"?: string | null,"broker_utc_offset_minutes"?: number | null,"company"?: string | null,"connector_version"?: string | null,"created_at"?: string,"currency"?: string | null,"currency_digits"?: number | null,"detected_trade_mode"?: string | null,"disconnected_at"?: string | null,"first_verified_at"?: string | null,"history_days"?: number,"id"?: string,"last_account_at"?: string | null,"last_bars_at"?: string | null,"last_deals_at"?: string | null,"last_orders_at"?: string | null,"last_positions_at"?: string | null,"last_quotes_at"?: string | null,"last_report_at"?: string | null,"last_snapshot_at"?: string | null,"last_symbols_at"?: string | null,"leverage"?: number | null,"masked_account"?: string | null,"owner_user_id"?: string,"quote_interval_ms"?: number,"server"?: string | null,"snapshot_interval_s"?: number,"status"?: string,"status_reason"?: string | null,"symbols_batch_id"?: string | null,"terminal_build"?: number | null,"terminal_connected"?: boolean | null,"updated_at"?: string,"verified_at"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "mt5_connections_agent_id_fkey"
+      columns: ["agent_id"]
+isOneToOne: true
+      referencedRelation: "agents"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"mt5_deals": {
+                  Row: {
+                    "commission": number,"connection_id": string,"deal_type": string,"entry": string | null,"executed_at": string,"fee": number,"observed_at": string,"order_ticket": number | null,"owner_user_id": string,"position_id": number | null,"price": number,"profit": number,"swap": number,"symbol": string,"ticket": number,"volume": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "commission": number,"connection_id": string,"deal_type": string,"entry"?: string | null,"executed_at": string,"fee": number,"observed_at": string,"order_ticket"?: number | null,"owner_user_id": string,"position_id"?: number | null,"price": number,"profit": number,"swap": number,"symbol": string,"ticket": number,"volume": number
+                  }
+                  Update: {
+                    "commission"?: number,"connection_id"?: string,"deal_type"?: string,"entry"?: string | null,"executed_at"?: string,"fee"?: number,"observed_at"?: string,"order_ticket"?: number | null,"owner_user_id"?: string,"position_id"?: number | null,"price"?: number,"profit"?: number,"swap"?: number,"symbol"?: string,"ticket"?: number,"volume"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "mt5_deals_connection_id_fkey"
+      columns: ["connection_id"]
+isOneToOne: false
+      referencedRelation: "mt5_connections"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"mt5_orders": {
+                  Row: {
+                    "connection_id": string,"observed_at": string,"order_type": string,"owner_user_id": string,"placed_at": string,"price_open": number,"price_stoplimit": number | null,"stop_loss": number | null,"symbol": string,"take_profit": number | null,"ticket": number,"volume_current": number,"volume_initial": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "connection_id": string,"observed_at": string,"order_type": string,"owner_user_id": string,"placed_at": string,"price_open": number,"price_stoplimit"?: number | null,"stop_loss"?: number | null,"symbol": string,"take_profit"?: number | null,"ticket": number,"volume_current": number,"volume_initial": number
+                  }
+                  Update: {
+                    "connection_id"?: string,"observed_at"?: string,"order_type"?: string,"owner_user_id"?: string,"placed_at"?: string,"price_open"?: number,"price_stoplimit"?: number | null,"stop_loss"?: number | null,"symbol"?: string,"take_profit"?: number | null,"ticket"?: number,"volume_current"?: number,"volume_initial"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "mt5_orders_connection_id_fkey"
+      columns: ["connection_id"]
+isOneToOne: false
+      referencedRelation: "mt5_connections"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"mt5_positions": {
+                  Row: {
+                    "connection_id": string,"observed_at": string,"opened_at": string,"owner_user_id": string,"price_current": number | null,"price_open": number,"profit": number,"side": string,"stop_loss": number | null,"swap": number,"symbol": string,"take_profit": number | null,"ticket": number,"volume": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "connection_id": string,"observed_at": string,"opened_at": string,"owner_user_id": string,"price_current"?: number | null,"price_open": number,"profit": number,"side": string,"stop_loss"?: number | null,"swap": number,"symbol": string,"take_profit"?: number | null,"ticket": number,"volume": number
+                  }
+                  Update: {
+                    "connection_id"?: string,"observed_at"?: string,"opened_at"?: string,"owner_user_id"?: string,"price_current"?: number | null,"price_open"?: number,"profit"?: number,"side"?: string,"stop_loss"?: number | null,"swap"?: number,"symbol"?: string,"take_profit"?: number | null,"ticket"?: number,"volume"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "mt5_positions_connection_id_fkey"
+      columns: ["connection_id"]
+isOneToOne: false
+      referencedRelation: "mt5_connections"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"mt5_quotes": {
+                  Row: {
+                    "ask": number,"bid": number,"connection_id": string,"last": number | null,"observed_at": string,"owner_user_id": string,"received_at": string,"symbol": string,"tick_time": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "ask": number,"bid": number,"connection_id": string,"last"?: number | null,"observed_at": string,"owner_user_id": string,"received_at"?: string,"symbol": string,"tick_time": string
+                  }
+                  Update: {
+                    "ask"?: number,"bid"?: number,"connection_id"?: string,"last"?: number | null,"observed_at"?: string,"owner_user_id"?: string,"received_at"?: string,"symbol"?: string,"tick_time"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "mt5_quotes_connection_id_fkey"
+      columns: ["connection_id"]
+isOneToOne: false
+      referencedRelation: "mt5_connections"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"mt5_symbols": {
+                  Row: {
+                    "available": boolean,"connection_id": string,"currency_base": string | null,"currency_profit": string | null,"description": string | null,"digits": number,"monitored": boolean,"name": string,"owner_user_id": string,"path": string | null,"point": number,"seen_batch": string | null,"trade_mode": number | null,"updated_at": string,"visible": boolean
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "available"?: boolean,"connection_id": string,"currency_base"?: string | null,"currency_profit"?: string | null,"description"?: string | null,"digits": number,"monitored"?: boolean,"name": string,"owner_user_id": string,"path"?: string | null,"point": number,"seen_batch"?: string | null,"trade_mode"?: number | null,"updated_at"?: string,"visible"?: boolean
+                  }
+                  Update: {
+                    "available"?: boolean,"connection_id"?: string,"currency_base"?: string | null,"currency_profit"?: string | null,"description"?: string | null,"digits"?: number,"monitored"?: boolean,"name"?: string,"owner_user_id"?: string,"path"?: string | null,"point"?: number,"seen_batch"?: string | null,"trade_mode"?: number | null,"updated_at"?: string,"visible"?: boolean
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "mt5_symbols_connection_id_fkey"
+      columns: ["connection_id"]
+isOneToOne: false
+      referencedRelation: "mt5_connections"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"profiles": {
                   Row: {
@@ -90,19 +270,25 @@ isOneToOne: false
                   ]
                 },"tasks": {
                   Row: {
-                    "attempt_count": number,"available_at": string,"cancel_requested_at": string | null,"claimed_at": string | null,"claimed_by_agent": string | null,"completed_at": string | null,"created_at": string,"error": Json | null,"expires_at": string,"id": string,"idempotency_key": string,"lease_expires_at": string | null,"max_attempts": number,"origin": string,"owner_user_id": string | null,"payload": NonNullable<Json>,"progress_message": string | null,"progress_percent": number | null,"result": Json | null,"revision": number,"started_at": string | null,"status": string,"task_type": string,"updated_at": string
+                    "attempt_count": number,"available_at": string,"cancel_requested_at": string | null,"claimed_at": string | null,"claimed_by_agent": string | null,"completed_at": string | null,"created_at": string,"error": Json | null,"expires_at": string,"id": string,"idempotency_key": string,"lease_expires_at": string | null,"max_attempts": number,"origin": string,"owner_user_id": string | null,"payload": NonNullable<Json>,"progress_message": string | null,"progress_percent": number | null,"result": Json | null,"revision": number,"started_at": string | null,"status": string,"target_agent_id": string | null,"task_type": string,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "attempt_count"?: number,"available_at"?: string,"cancel_requested_at"?: string | null,"claimed_at"?: string | null,"claimed_by_agent"?: string | null,"completed_at"?: string | null,"created_at"?: string,"error"?: Json | null,"expires_at": string,"id"?: string,"idempotency_key": string,"lease_expires_at"?: string | null,"max_attempts": number,"origin": string,"owner_user_id"?: string | null,"payload"?: NonNullable<Json>,"progress_message"?: string | null,"progress_percent"?: number | null,"result"?: Json | null,"revision"?: number,"started_at"?: string | null,"status"?: string,"task_type": string,"updated_at"?: string
+                    "attempt_count"?: number,"available_at"?: string,"cancel_requested_at"?: string | null,"claimed_at"?: string | null,"claimed_by_agent"?: string | null,"completed_at"?: string | null,"created_at"?: string,"error"?: Json | null,"expires_at": string,"id"?: string,"idempotency_key": string,"lease_expires_at"?: string | null,"max_attempts": number,"origin": string,"owner_user_id"?: string | null,"payload"?: NonNullable<Json>,"progress_message"?: string | null,"progress_percent"?: number | null,"result"?: Json | null,"revision"?: number,"started_at"?: string | null,"status"?: string,"target_agent_id"?: string | null,"task_type": string,"updated_at"?: string
                   }
                   Update: {
-                    "attempt_count"?: number,"available_at"?: string,"cancel_requested_at"?: string | null,"claimed_at"?: string | null,"claimed_by_agent"?: string | null,"completed_at"?: string | null,"created_at"?: string,"error"?: Json | null,"expires_at"?: string,"id"?: string,"idempotency_key"?: string,"lease_expires_at"?: string | null,"max_attempts"?: number,"origin"?: string,"owner_user_id"?: string | null,"payload"?: NonNullable<Json>,"progress_message"?: string | null,"progress_percent"?: number | null,"result"?: Json | null,"revision"?: number,"started_at"?: string | null,"status"?: string,"task_type"?: string,"updated_at"?: string
+                    "attempt_count"?: number,"available_at"?: string,"cancel_requested_at"?: string | null,"claimed_at"?: string | null,"claimed_by_agent"?: string | null,"completed_at"?: string | null,"created_at"?: string,"error"?: Json | null,"expires_at"?: string,"id"?: string,"idempotency_key"?: string,"lease_expires_at"?: string | null,"max_attempts"?: number,"origin"?: string,"owner_user_id"?: string | null,"payload"?: NonNullable<Json>,"progress_message"?: string | null,"progress_percent"?: number | null,"result"?: Json | null,"revision"?: number,"started_at"?: string | null,"status"?: string,"target_agent_id"?: string | null,"task_type"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
       foreignKeyName: "tasks_claimed_by_agent_fkey"
       columns: ["claimed_by_agent"]
+isOneToOne: false
+      referencedRelation: "agents"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "tasks_target_agent_id_fkey"
+      columns: ["target_agent_id"]
 isOneToOne: false
       referencedRelation: "agents"
       referencedColumns: ["id"]
@@ -161,6 +347,9 @@ isOneToOne: false
 "agent_heartbeat":
 { Args: { "p_agent_version": string,"p_capabilities": (string)[],"p_platform"?: string,"p_token_sha256": string }; Returns: Json
                            },
+"agent_pair":
+{ Args: { "p_agent_version": string,"p_code_sha256": string,"p_platform"?: string,"p_token_sha256": string }; Returns: Json
+                           },
 "agent_renew_lease":
 { Args: { "p_lease_token": string,"p_progress_message"?: string,"p_progress_percent"?: number,"p_task_id": string,"p_token_sha256": string }; Returns: Json
                            },
@@ -191,6 +380,7 @@ isOneToOne: false
 "revision": number,
 "started_at": string | null,
 "status": string,
+"target_agent_id": string | null,
 "task_type": string,
 "updated_at": string
             }
@@ -200,6 +390,12 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"create_agent_pairing":
+{ Args: { "p_display_name": string }; Returns: Json
+                           },
+"disconnect_mt5_connection":
+{ Args: { "p_connection_id": string }; Returns: Json
+                           },
 "get_my_access":
 { Args: Record<PropertyKey, never>; Returns: {
               "is_owner": boolean,"owner_configured": boolean
@@ -210,6 +406,21 @@ isOneToOne: false
                            },
 "is_owner":
 { Args: Record<PropertyKey, never>; Returns: boolean
+                           },
+"mt5_publish":
+{ Args: { "p_account_fingerprint": string,"p_connection_id": string,"p_data": Json,"p_kind": string,"p_token_sha256": string }; Returns: Json
+                           },
+"mt5_report_connection":
+{ Args: { "p_report": Json,"p_token_sha256": string }; Returns: Json
+                           },
+"resume_mt5_connection":
+{ Args: { "p_accept_new_account"?: boolean,"p_connection_id": string }; Returns: Json
+                           },
+"revoke_agent":
+{ Args: { "p_agent_id": string }; Returns: undefined
+                           },
+"set_mt5_monitored_symbols":
+{ Args: { "p_connection_id": string,"p_symbols": (string)[] }; Returns: Json
                            },
 "submit_task":
 { Args: { "p_idempotency_key": string,"p_payload": Json,"p_task_type": string }; Returns: {
@@ -235,6 +446,7 @@ isOneToOne: false
 "revision": number,
 "started_at": string | null,
 "status": string,
+"target_agent_id": string | null,
 "task_type": string,
 "updated_at": string
             }
@@ -243,7 +455,10 @@ isOneToOne: false
         to: "tasks"
         isOneToOne: true
         isSetofReturn: false
-      } }
+      } },
+"update_mt5_connection_settings":
+{ Args: { "p_account_interval_s": number,"p_connection_id": string,"p_history_days": number,"p_quote_interval_ms": number,"p_snapshot_interval_s": number }; Returns: Json
+                           }
           }
           Enums: {
             [_ in never]: never

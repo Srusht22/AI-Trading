@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, Bot, FlaskConical, OctagonX, Play, PlugZap, Square, TriangleAlert, Wallet } from 'lucide-react';
+import { Activity, Bot, FlaskConical, OctagonX, Play, PlugZap, Square, Wallet } from 'lucide-react';
 import {
   Badge,
   Button,
   Callout,
-  ConfirmationDialog,
   DataTable,
   EmptyState,
   PreviewTag,
@@ -14,25 +13,39 @@ import {
   StatusBadge,
   TabPanel,
   Tabs,
+  Skeleton,
   Term,
+  Tooltip,
 } from '@/components/ui';
 import { RiskMetric } from '@/components/domain/RiskMetric';
 import { LogList } from '@/components/domain/LogList';
 import { demoStatusInfo } from '@/components/domain/RobotCard';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { sampleDashboard, samplePendingOrders, samplePositions, sampleRobots, sampleTerminalLog, sampleTradeHistory } from '@/data/sample';
-import type { Robot } from '@/data/types';
 import { formatMoney, formatSigned } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { usePreferences } from '@/lib/preferences';
-import { usePreviewNotice } from '@/lib/previewNotice';
+import { AccountOverview } from '@/components/mt5/AccountOverview';
+import { ConnectorStatusBadge } from '@/components/mt5/ConnectorStatusBadge';
+import { TradingActivity } from '@/components/mt5/TradingActivity';
+import { useAccountState, useConnector } from '@/hooks/useMt5';
+import { useDisplayPrefs } from '@/hooks/useDisplayPrefs';
+
+const READ_ONLY_REASON = 'Not available: in this version TradePilot only reads your demo account. Starting, stopping or closing anything arrives in a later phase with its own safety checks.';
+
+/** A control that exists in the design but must not act in this phase. */
+function UnavailableAction({ children }: { children: React.ReactNode }) {
+  return (
+    <Tooltip content={READ_ONLY_REASON}>
+      <span tabIndex={0} className="inline-flex rounded-md">
+        {children}
+      </span>
+    </Tooltip>
+  );
+}
 
 type TabId = 'positions' | 'orders' | 'history' | 'log';
 
-const notConnectedNotice = {
-  requires: 'A connected MT5 terminal logged in to a demo account, via the Windows connector.',
-  notDone: 'No instruction was sent. No robot was started or stopped and no trade was opened or closed.',
-};
 
 function Money({ value }: { value: number }) {
   return (
@@ -45,18 +58,14 @@ function Money({ value }: { value: number }) {
 
 export default function DemoTradingPage() {
   const { showSampleData: sample } = usePreferences();
-  const showPreview = usePreviewNotice();
   const [tab, setTab] = useState<TabId>('positions');
-  const [confirmEmergency, setConfirmEmergency] = useState(false);
+  const connector = useConnector();
+  const prefs = useDisplayPrefs();
+  const conn = connector.connection;
+  const real = !sample && !!conn && (conn.status === 'verified' || !!conn.first_verified_at);
+  const account = useAccountState(real ? conn!.id : undefined);
   const deployed = sample ? sampleRobots.filter((r) => r.demoStatus !== 'not_deployed') : [];
   const floating = samplePositions.reduce((s, p) => s + p.profit, 0);
-
-  const robotAction = (action: 'Start' | 'Stop', robot: Robot) =>
-    showPreview({
-      title: `${action} Demo Robot`,
-      body: `Once connected, this will ${action === 'Start' ? 'start' : 'stop'} “${robot.name}” on your demo account inside MetaTrader 5.`,
-      ...notConnectedNotice,
-    });
 
   return (
     <>
@@ -69,23 +78,30 @@ export default function DemoTradingPage() {
           </>
         }
         actions={
-          <Button variant="danger" leadingIcon={<OctagonX />} onClick={() => setConfirmEmergency(true)}>
-            Emergency disable all
-          </Button>
+          <UnavailableAction>
+            <Button variant="danger" leadingIcon={<OctagonX />} disabled>
+              Emergency disable all
+            </Button>
+          </UnavailableAction>
         }
       />
 
       <div className="border-warning bg-warning-soft mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-dashed px-4 py-3 [border-color:color-mix(in_srgb,var(--tp-warning)_45%,transparent)]">
         <FlaskConical className="text-warning size-5 shrink-0" aria-hidden />
         <p className="text-fg flex-1 basis-64 text-sm">
-          <strong className="text-warning font-semibold tracking-wide uppercase">Demo environment</strong> · Virtual money only. Live
-          connectivity and demo execution are not implemented yet, so no robot on this page is actually trading.
+          <strong className="text-warning font-semibold tracking-wide uppercase">Demo environment</strong> · Virtual money only. The MT5
+          connection is <strong>read-only</strong>: TradePilot shows what is in your demo account but cannot open, change or close trades, and
+          no robot on this page is trading.
         </p>
-        <Button asChild size="sm" variant="secondary">
-          <Link to="/connections">
-            <PlugZap aria-hidden /> Connect MT5
-          </Link>
-        </Button>
+        {conn ? (
+          <ConnectorStatusBadge state={connector.state} />
+        ) : (
+          <Button asChild size="sm" variant="secondary">
+            <Link to="/connections">
+              <PlugZap aria-hidden /> Connect MT5
+            </Link>
+          </Button>
+        )}
       </div>
 
       {sample && <SampleDataBanner className="mb-6">Positions, orders and logs below are invented to preview the layout. No trades exist.</SampleDataBanner>}
@@ -98,9 +114,14 @@ export default function DemoTradingPage() {
               <Wallet className="text-fg-3 size-[18px]" aria-hidden /> Demo account {sample && <PreviewTag />}
             </>
           }
-          description={sample ? 'Sample Broker Ltd. · Demo server · USD account' : 'No demo account is connected.'}
-          actions={sample ? <Badge tone="warning">Virtual money</Badge> : <StatusBadge status="not_connected">Not connected</StatusBadge>}
+          description={sample ? 'Sample Broker Ltd. · Demo server · USD account' : real ? 'Read from your MT5 terminal by the connector.' : 'No demo account is connected.'}
+          actions={sample ? <Badge tone="warning">Virtual money</Badge> : real ? <Badge tone="warning">Virtual money</Badge> : <StatusBadge status="not_connected">Not connected</StatusBadge>}
         />
+        {connector.loading && !sample ? (
+          <Skeleton className="h-28 w-full" />
+        ) : real ? (
+          <AccountOverview connection={conn!} account={account.data} loading={account.isPending} connected={connector.connected} prefs={prefs} now={connector.now} />
+        ) : (
         <dl className="grid grid-cols-2 gap-6 lg:grid-cols-4">
           <RiskMetric term="balance" value={sample ? formatMoney(sampleDashboard.account.balance) : '—'} />
           <RiskMetric term="equity" value={sample ? formatMoney(sampleDashboard.account.equity) : '—'} />
@@ -111,6 +132,7 @@ export default function DemoTradingPage() {
           />
           <RiskMetric term="exposure" value={sample ? '1.0%' : '—'} reading={sample ? 'Of the balance at risk right now.' : undefined} />
         </dl>
+        )}
       </section>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
@@ -118,6 +140,11 @@ export default function DemoTradingPage() {
           <h2 id="activity-title" className="sr-only">
             Trading activity
           </h2>
+          {connector.loading && !sample ? (
+            <Skeleton className="h-48 w-full" />
+          ) : real ? (
+            <TradingActivity connection={conn!} connected={connector.connected} prefs={prefs} now={connector.now} />
+          ) : (
           <Tabs
             label="Trading activity"
             value={tab}
@@ -188,6 +215,7 @@ export default function DemoTradingPage() {
               )}
             </TabPanel>
           </Tabs>
+          )}
         </section>
 
         <section aria-labelledby="robots-title" className="surface p-5 sm:p-6">
@@ -218,15 +246,17 @@ export default function DemoTradingPage() {
                       <StatusBadge status={st.status}>{running ? 'Running (sample)' : st.label}</StatusBadge>
                     </div>
                     <div className="mt-3 flex gap-2">
-                      {running ? (
-                        <Button size="sm" variant="secondary" leadingIcon={<Square />} onClick={() => robotAction('Stop', r)}>
-                          Stop Demo Robot
-                        </Button>
-                      ) : (
-                        <Button size="sm" variant="secondary" leadingIcon={<Play />} onClick={() => robotAction('Start', r)}>
-                          Start Demo Robot
-                        </Button>
-                      )}
+                      <UnavailableAction>
+                        {running ? (
+                          <Button size="sm" variant="secondary" leadingIcon={<Square />} disabled>
+                            Stop Demo Robot
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="secondary" leadingIcon={<Play />} disabled>
+                            Start Demo Robot
+                          </Button>
+                        )}
+                      </UnavailableAction>
                     </div>
                   </li>
                 );
@@ -246,32 +276,12 @@ export default function DemoTradingPage() {
             />
           )}
           <Callout tone="info" className="mt-5">
-            Robots only start after your explicit approval. The emergency control will stop every demo robot and close its trades at
-            once.
+            Robot controls and the emergency stop are not available in this read-only version. When they arrive, robots will only start
+            after your explicit approval, and only on a verified demo account.
           </Callout>
         </section>
       </div>
 
-      <ConfirmationDialog
-        open={confirmEmergency}
-        onOpenChange={setConfirmEmergency}
-        icon={
-          <span className="bg-negative-soft text-negative flex size-9 items-center justify-center rounded-lg">
-            <TriangleAlert className="size-[18px]" aria-hidden />
-          </span>
-        }
-        title="Disable all demo robots?"
-        description="When connected, this immediately stops every robot on the demo account and closes their open trades. Use it if something looks wrong."
-        confirmLabel="Disable all robots"
-        confirmVariant="danger"
-        onConfirm={() =>
-          showPreview({
-            title: 'Emergency disable',
-            body: 'Once MT5 is connected, this control will stop all demo robots within seconds, even if the website loses its connection afterwards.',
-            ...notConnectedNotice,
-          })
-        }
-      />
     </>
   );
 }

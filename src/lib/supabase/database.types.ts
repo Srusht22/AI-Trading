@@ -40,6 +40,16 @@ export const WRITABLE_COLUMNS = {
   tasks: { insert: [], update: [] },
   task_attempts: { insert: [], update: [] },
   agents: { insert: [], update: [] },
+  // Phase 4 MT5 data: written only by the connector through mt5_publish / mt5_report_connection.
+  mt5_connections: { insert: [], update: [] },
+  mt5_account_state: { insert: [], update: [] },
+  mt5_account_snapshots: { insert: [], update: [] },
+  mt5_symbols: { insert: [], update: [] },
+  mt5_quotes: { insert: [], update: [] },
+  mt5_bars: { insert: [], update: [] },
+  mt5_positions: { insert: [], update: [] },
+  mt5_orders: { insert: [], update: [] },
+  mt5_deals: { insert: [], update: [] },
 } as const;
 
 /**
@@ -47,7 +57,7 @@ export const WRITABLE_COLUMNS = {
  * service_role (the agent API and trusted scripts), so they are left out of
  * the client type entirely.
  */
-type ServerOnlyFunction = `agent_${string}` | `admin_${string}`;
+type ServerOnlyFunction = `agent_${string}` | `admin_${string}` | 'mt5_publish' | 'mt5_report_connection';
 
 type GenTables = Generated['public']['Tables'];
 type Writable = typeof WRITABLE_COLUMNS;
@@ -67,6 +77,15 @@ export type Database = Omit<Generated, 'public'> & {
       tasks: Narrowed<'tasks'>;
       task_attempts: Narrowed<'task_attempts'>;
       agents: Narrowed<'agents'>;
+      mt5_connections: Narrowed<'mt5_connections'>;
+      mt5_account_state: Narrowed<'mt5_account_state'>;
+      mt5_account_snapshots: Narrowed<'mt5_account_snapshots'>;
+      mt5_symbols: Narrowed<'mt5_symbols'>;
+      mt5_quotes: Narrowed<'mt5_quotes'>;
+      mt5_bars: Narrowed<'mt5_bars'>;
+      mt5_positions: Narrowed<'mt5_positions'>;
+      mt5_orders: Narrowed<'mt5_orders'>;
+      mt5_deals: Narrowed<'mt5_deals'>;
     };
     Functions: Omit<Generated['public']['Functions'], Extract<keyof Generated['public']['Functions'], ServerOnlyFunction>>;
   };

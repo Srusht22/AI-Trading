@@ -8,6 +8,7 @@ import { createProfileService } from './supabase/profiles';
 import { createRealtimeService } from './supabase/realtime';
 import { createSettingsService } from './supabase/settings';
 import { createAgentService, createTaskService } from './supabase/tasks';
+import { createMt5Service } from './supabase/mt5';
 
 export type { Services } from './types';
 
@@ -22,5 +23,6 @@ export function createSupabaseServices(config: PublicConfig, origin: string, cli
     realtime: createRealtimeService(c),
     tasks: createTaskService(c),
     agents: createAgentService(c),
+    mt5: createMt5Service(c),
   };
 }

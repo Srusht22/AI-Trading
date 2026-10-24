@@ -34,7 +34,8 @@ describe('application shell', () => {
   it('never reports an integration that does not exist as connected', async () => {
     await renderWorkspace();
     const status = screen.getAllByRole('group', { name: 'System status' })[0];
-    expect(within(status).getAllByText('Later phase').length).toBe(2);
+    expect(within(status).getAllByText('Later phase').length).toBe(1); // the AI service
+    expect(await within(status).findByText('Not paired')).toBeInTheDocument(); // MT5: real status, nothing paired
     expect(within(status).queryByText(/^Connected$/)).not.toBeInTheDocument();
     expect(screen.getAllByText(/Demo environment/i).length).toBeGreaterThan(0);
   });

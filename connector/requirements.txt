@@ -1,0 +1,11 @@
+# TradePilot MT5 connector — runtime dependencies for Windows, 64-bit Python 3.12 or 3.13.
+# Installed by setup.ps1 with --require-hashes: pip refuses anything that does not
+# match these exact, official wheels from PyPI.
+#   MetaTrader5 — official MetaQuotes package (https://pypi.org/project/MetaTrader5/)
+#   numpy       — required by MetaTrader5 for price-history arrays
+MetaTrader5==5.0.6231 \
+    --hash=sha256:b94b1f8f52087ae36dfac5f352a96f5d04fe308704d9515f82cf5d1470bc31d4 \
+    --hash=sha256:3a8c8349ce691a4ef05e314afc034ad82f4dbb19415efc7442af5ea075d5e797
+numpy==2.5.3 \
+    --hash=sha256:0a59a421a32580a009e8a1751345bf829631b990dc1794b80514ab722b435def \
+    --hash=sha256:71cad2b2a7451ab79d8f5e71b453485b6775963d5cf794179144a7463fe6e8ec

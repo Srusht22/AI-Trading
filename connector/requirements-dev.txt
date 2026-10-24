@@ -1,0 +1,2 @@
+# For running the connector's automated tests (any OS; MT5 is replaced by a test double).
+pytest==8.4.2

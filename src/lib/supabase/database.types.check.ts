@@ -40,5 +40,11 @@ export const l: keyof F = 'agent_claim';
 // @ts-expect-error — administration is not callable from the browser
 export const m: keyof F = 'admin_register_agent';
 
+// @ts-expect-error — account data is written only by the connector
+export const n: T['mt5_account_state']['Insert'] = { equity: 1 };
+// @ts-expect-error — publishing is not callable from the browser
+export const o: keyof F = 'mt5_publish';
+export const p: keyof F = 'create_agent_pairing';
+
 // Rows keep the precise generated shape.
 export const g: T['audit_events']['Row']['metadata'] = { fields: ['theme'] };

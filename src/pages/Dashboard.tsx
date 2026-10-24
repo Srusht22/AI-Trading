@@ -6,6 +6,7 @@ import {
   ArrowRight,
   BarChart3,
   Bot,
+  CandlestickChart,
   Circle,
   CircleCheck,
   CircleDashed,
@@ -39,10 +40,17 @@ import { FreshnessBadge } from '@/components/domain/FreshnessBadge';
 import { LiveIndicator } from '@/components/domain/LiveIndicator';
 import { ConnectionStatus } from '@/components/domain/ConnectionStatus';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { integrationStatus } from '@/config/integrations';
+import { integrationStatus, type ConnectionState } from '@/config/integrations';
 import { sampleDashboard, sampleEquity } from '@/data/sample';
 import type { EquitySeries } from '@/domain/marketData';
 import { useProfile } from '@/hooks/useAccount';
+import { useAccountSnapshots, useAccountState, useConnector } from '@/hooks/useMt5';
+import { AccountOverview } from '@/components/mt5/AccountOverview';
+import { AccountEquityChart } from '@/components/mt5/AccountEquityChart';
+import { ConnectorStatusBadge } from '@/components/mt5/ConnectorStatusBadge';
+import { MarketPanel } from '@/components/mt5/MarketPanel';
+import { accountFreshness, displayMaskedAccount, formatAccountMoney } from '@/domain/mt5';
+import { formatRelativeTime } from '@/lib/datetime';
 import { useRecentAuditEvents } from '@/hooks/useAudit';
 import { useDisplayPrefs } from '@/hooks/useDisplayPrefs';
 import { cn } from '@/lib/cn';
@@ -86,8 +94,8 @@ export default function DashboardPage() {
               </Button>
             }
           >
-            Your account, settings and activity are stored for real. Trading sections stay empty until robots, backtests and the MT5
-            connector exist in later phases — nothing here is invented.
+            Your account, settings, activity and — once the MT5 connector is paired — your demo account and prices are real. Robots,
+            backtests and research arrive in later phases and stay empty until then — nothing here is invented.
           </Callout>
         )}
       </motion.div>
@@ -176,26 +184,11 @@ export default function DashboardPage() {
                   <span className="text-fg num">{sampleDashboard.backtests.failed}</span> failed
                 </span>
               ) : (
-                <UnavailableNote>Backtests run through MT5, which isn’t connected yet.</UnavailableNote>
+                <UnavailableNote>Backtesting arrives in a later phase; the MT5 link is read-only for now.</UnavailableNote>
               )
             }
           />
-          <MetricCard
-            label={<Term k="demoAccount">Demo account</Term>}
-            icon={Wallet}
-            sample={sample}
-            value={sample ? formatMoney(sampleDashboard.account.balance) : '—'}
-            unit={sample ? 'balance' : undefined}
-            footer={
-              sample ? (
-                <span>
-                  Equity <span className="text-fg num">{formatMoney(sampleDashboard.account.equity)}</span> · virtual money
-                </span>
-              ) : (
-                <UnavailableNote>Balance and equity will come from MT5 via the connector.</UnavailableNote>
-              )
-            }
-          />
+          <DemoAccountCard sample={sample} />
           <MetricCard
             label="Research progress"
             icon={ListChecks}
@@ -215,6 +208,10 @@ export default function DashboardPage() {
           />
         </div>
       </motion.section>
+
+      <motion.div variants={staggerItem}>
+        <AccountAndMarket />
+      </motion.div>
 
       <motion.div variants={staggerItem} className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <PerformanceOverview sample={sample} className="xl:col-span-2" />
@@ -240,13 +237,19 @@ const principles = [
   { icon: Scale, title: 'Risk before profit', text: 'Every result shows drawdown and assumptions.' },
 ];
 
-/** Real setup state. Only account creation can be completed in this version. */
+/** Real setup state, derived from stored data. */
 function SetupChecklist() {
+  const connector = useConnector();
   const steps = [
     { label: 'Create your account', detail: 'Signed in and protected by the database’s access rules.', done: true, to: '/account' },
-    { label: 'Connect MetaTrader 5', detail: 'Needs the Windows connector — later phase.', done: false, to: '/connections' },
+    {
+      label: 'Connect MetaTrader 5',
+      detail: connector.verified ? 'Demo account verified through the connector.' : 'Pair the read-only Windows connector with your demo account.',
+      done: connector.verified,
+      to: '/connections',
+    },
     { label: 'Add your first robot', detail: 'The robot library arrives in a later phase.', done: false, to: '/robots' },
-    { label: 'Run a first backtest', detail: 'Runs in MT5 once it is connected.', done: false, to: '/backtesting' },
+    { label: 'Run a first backtest', detail: 'Backtesting arrives in a later phase.', done: false, to: '/backtesting' },
   ];
   const done = steps.filter((s) => s.done).length;
   return (
@@ -326,6 +329,85 @@ function usePerformanceSeries(sample: boolean, days: number): EquitySeries {
 }
 
 function PerformanceOverview({ sample, className }: { sample: boolean; className?: string }) {
+  return sample ? <SamplePerformance className={className} /> : <AccountPerformance className={className} />;
+}
+
+type RealRange = '1D' | '1W' | '1M' | '6M';
+const realRangeDays: Record<RealRange, number> = { '1D': 1, '1W': 7, '1M': 30, '6M': 182 };
+
+/** Real equity history: timestamped snapshots recorded by the connector. Never back-filled. */
+function AccountPerformance({ className }: { className?: string }) {
+  const connector = useConnector();
+  const prefs = useDisplayPrefs();
+  const [range, setRange] = useState<RealRange>('1W');
+  const conn = connector.connection?.status === 'verified' || connector.connection?.first_verified_at ? connector.connection : null;
+  const snapshots = useAccountSnapshots(conn?.id, realRangeDays[range]);
+  const points = snapshots.data?.snapshots ?? [];
+  const currency = conn?.currency ?? '';
+  const digits = conn?.currency_digits ?? 2;
+  const first = points[0]?.observed_at;
+  return (
+    <ChartContainer
+      className={className}
+      title="Demo account equity"
+      badge={conn ? <ConnectorStatusBadge state={connector.state} /> : undefined}
+      explanation={
+        <>
+          <Term k="equity">Equity</Term> and <Term k="balance">balance</Term> of your demo account as MT5 reported them, recorded about every{' '}
+          {Math.round((conn?.snapshot_interval_s ?? 60) / 60)} minute{(conn?.snapshot_interval_s ?? 60) >= 120 ? 's' : ''} while the connector runs.
+          {first && ` This range starts ${formatRelativeTime(first, connector.now)}; nothing before the connector began recording is shown, because it was never recorded.`}
+          {points.length > 0 && points.length < 5 && ` Only ${points.length} snapshot${points.length === 1 ? '' : 's'} so far — history grows while the connector runs.`}
+        </>
+      }
+      controls={
+        <SegmentedControl
+          label="Time range"
+          value={range}
+          onValueChange={setRange}
+          options={(Object.keys(realRangeDays) as RealRange[]).map((r) => ({ value: r, label: r, ariaLabel: `Last ${r}` }))}
+        />
+      }
+      legend={<ChartLegend items={[{ label: 'Equity', color: 'var(--tp-accent)' }, { label: 'Balance (closed trades)', color: 'var(--tp-fg-3)', dashed: true }]} />}
+      table={
+        <DataTable
+          dense
+          caption="Equity snapshots recorded by the connector"
+          rowKey={(r) => r.observed_at}
+          rows={[...points].reverse().slice(0, 100)}
+          columns={[
+            { key: 'd', header: 'Recorded', cell: (r) => new Intl.DateTimeFormat('en-GB', { timeZone: prefs.timeZone, dateStyle: 'medium', timeStyle: 'short' }).format(new Date(r.observed_at)) },
+            { key: 'e', header: 'Equity', align: 'right', cell: (r) => formatAccountMoney(r.equity, currency, digits) },
+            { key: 'b', header: 'Balance', align: 'right', cell: (r) => formatAccountMoney(r.balance, currency, digits) },
+          ]}
+        />
+      }
+      empty={
+        !conn ? (
+          <EmptyState
+            icon={LineChart}
+            title="No account connected"
+            description="Connect your MT5 demo account through the read-only connector. Equity is recorded from that moment on — earlier history cannot be invented."
+            actions={
+              <Button asChild variant="secondary" size="sm">
+                <Link to="/connections">Connect MT5</Link>
+              </Button>
+            }
+          />
+        ) : snapshots.isPending ? (
+          <Skeleton className="h-64 w-full" />
+        ) : points.length === 0 ? (
+          <EmptyState icon={LineChart} title="No snapshots in this range yet" description="The connector records a snapshot every few minutes while it runs. More history accumulates over time." />
+        ) : undefined
+      }
+      height={300}
+    >
+      <AccountEquityChart snapshots={points} currency={currency} digits={digits} timeZone={prefs.timeZone} />
+    </ChartContainer>
+  );
+}
+
+function SamplePerformance({ className }: { className?: string }) {
+  const sample = true;
   const { setShowSampleData } = usePreferences();
   const [range, setRange] = useState<Range>('6M');
   const series = usePerformanceSeries(sample, rangeDays[range]);
@@ -370,7 +452,7 @@ function PerformanceOverview({ sample, className }: { sample: boolean; className
           <EmptyState
             icon={LineChart}
             title="No performance data yet"
-            description="This chart draws real equity data once a backtest has been recorded or a robot has traded on a demo account. Both need the MT5 connector, which arrives in a later phase."
+            description="This chart draws real equity data once a backtest has been recorded or a robot has traded on a demo account. Robots and backtests arrive in a later phase."
             actions={
               <Button variant="secondary" size="sm" onClick={() => setShowSampleData(true)}>
                 Preview with sample data
@@ -434,7 +516,7 @@ function RecentActivity() {
         </>
       )}
       <p className="text-fg-3 mt-4 text-xs">
-        Backtest, robot and connector events will appear here once those systems exist.
+        Connector pairing and verification appear here too. Backtest and robot events arrive with those features.
       </p>
     </section>
   );
@@ -501,8 +583,30 @@ function ResearchWorkspace() {
   );
 }
 
-/** Always real status: nothing is connected in Phase 1, and it says so. */
+/** Real status of each integration, derived from the connector's reports. */
 function ConnectionSummary() {
+  const connector = useConnector();
+  const { connection: c, agent, state, now } = connector;
+  const agentOnline = !!agent && !agent.revoked_at && !!agent.last_heartbeat_at && now.getTime() - Date.parse(agent.last_heartbeat_at) < 45_000;
+  const items: { label: string; state: ConnectionState; detail: string }[] = [
+    {
+      label: 'MT5 terminal',
+      state: !c ? 'not_configured' : !agentOnline ? 'not_connected' : c.terminal_connected ? 'connected' : 'error',
+      detail: !c ? 'Reported by the connector once it is paired.' : !agentOnline ? 'Unknown while the connector is offline.' : c.terminal_connected ? `Connected to the broker (build ${c.terminal_build ?? '?'}).` : 'Not connected to the broker.',
+    },
+    {
+      label: 'Windows connector',
+      state: !agent ? 'not_configured' : agent.revoked_at ? 'error' : agentOnline ? 'connected' : 'not_connected',
+      detail: !agent ? 'Not paired yet.' : agent.revoked_at ? 'Revoked — pair a new connector.' : agentOnline ? `Online · v${agent.agent_version ?? '?'}` : 'No heartbeat in the last 45 seconds.',
+    },
+    {
+      label: 'Demo account',
+      state: state === 'connected' ? 'connected' : state === 'blocked_account_type' || state === 'account_changed' ? 'error' : c?.status === 'verified' ? 'degraded' : c ? 'connecting' : 'not_configured',
+      detail: c?.status === 'verified' ? `Verified demo · ${displayMaskedAccount(c.masked_account)}` : c?.status === 'blocked' ? 'Blocked — not the approved demo account.' : 'Not verified yet.',
+    },
+    ...integrationStatus.filter((s) => s.id === 'ai').map((s) => ({ label: s.label, state: s.state, detail: s.detail })),
+  ];
+  const lastSync = c?.last_account_at ?? c?.last_report_at ?? null;
   return (
     <section aria-labelledby="connections-title" className="surface p-5 sm:p-6">
       <SectionHeader
@@ -514,26 +618,122 @@ function ConnectionSummary() {
             <PlugZap className="text-fg-3 size-[18px]" aria-hidden /> Connections
           </>
         }
-        description="TradePilot needs a Windows connector and an MT5 terminal before it can test or trade."
+        description="The read-only MT5 connector links TradePilot to your demo account. AI features arrive later."
         actions={
           <Button asChild size="sm" variant="secondary">
-            <Link to="/connections">Connect MT5</Link>
+            <Link to="/connections">{c ? 'Manage connection' : 'Connect MT5'}</Link>
           </Button>
         }
       />
       <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 xl:grid-cols-5">
-        {integrationStatus.map((s) => (
-          <ConnectionStatus key={s.id} layout="stack" label={s.label} state={s.state} detail={s.detail} />
+        {items.map((s) => (
+          <ConnectionStatus key={s.label} layout="stack" label={s.label} state={s.state} detail={s.detail} />
         ))}
         <div className="flex items-start gap-3">
           <History className="text-fg-3 mt-0.5 size-4 shrink-0" aria-hidden />
           <div>
             <p className="text-fg text-sm font-medium">Last successful sync</p>
-            <p className="text-fg-2 text-sm">Never</p>
-            <p className="text-fg-3 mt-0.5 text-xs">Shown once the connector reports in.</p>
+            <p className="text-fg-2 text-sm">{lastSync ? formatRelativeTime(lastSync, now) : 'Never'}</p>
+            <p className="text-fg-3 mt-0.5 text-xs">{lastSync ? 'Most recent data received from the connector.' : 'Shown once the connector reports in.'}</p>
           </div>
         </div>
       </div>
+    </section>
+  );
+}
+
+/** The demo account card: real values from MT5 when connected, an honest note otherwise. */
+function DemoAccountCard({ sample }: { sample: boolean }) {
+  const connector = useConnector();
+  const conn = connector.connection;
+  const account = useAccountState(conn?.status === 'verified' || conn?.first_verified_at ? conn.id : undefined);
+  const prefs = useDisplayPrefs();
+  if (account.data && conn) {
+    const a = account.data;
+    const fresh = accountFreshness(a, conn, connector.connected, connector.now);
+    return (
+      <MetricCard
+        label={<Term k="demoAccount">Demo account</Term>}
+        icon={Wallet}
+        value={formatAccountMoney(a.balance, a.currency, a.currency_digits, prefs.locale)}
+        unit="balance"
+        footer={
+          <span>
+            Equity <span className="text-fg num">{formatAccountMoney(a.equity, a.currency, a.currency_digits, prefs.locale)}</span> · {displayMaskedAccount(conn.masked_account)}
+            <span className={cn('block text-xs', fresh === 'live' ? 'text-fg-3' : 'text-warning')}>
+              {fresh === 'live' ? 'Live from MT5' : 'Last known'} · updated {formatRelativeTime(a.observed_at, connector.now)}
+            </span>
+          </span>
+        }
+      />
+    );
+  }
+  return (
+    <MetricCard
+      label={<Term k="demoAccount">Demo account</Term>}
+      icon={Wallet}
+      sample={sample}
+      value={sample ? formatMoney(sampleDashboard.account.balance) : '—'}
+      unit={sample ? 'balance' : undefined}
+      footer={
+        sample ? (
+          <span>
+            Equity <span className="text-fg num">{formatMoney(sampleDashboard.account.equity)}</span> · virtual money
+          </span>
+        ) : (
+          <UnavailableNote>
+            {conn ? 'Waiting for the first account summary from the connector.' : 'Connect MT5 on the Connections page to see your real demo balance.'}
+          </UnavailableNote>
+        )
+      }
+    />
+  );
+}
+
+/** Real account summary and prices — or a clear invitation to connect. Never sample data. */
+function AccountAndMarket() {
+  const connector = useConnector();
+  const prefs = useDisplayPrefs();
+  const conn = connector.connection;
+  const everVerified = !!conn && (conn.status === 'verified' || !!conn.first_verified_at);
+  const account = useAccountState(everVerified ? conn!.id : undefined);
+  return (
+    <section aria-labelledby="market-title" className="surface p-5 sm:p-6">
+      <SectionHeader
+        id="market-title"
+        title={
+          <>
+            <CandlestickChart className="text-fg-3 size-[18px]" aria-hidden /> Demo account & market
+          </>
+        }
+        description={everVerified ? 'Read-only data from your MetaTrader 5 terminal, delivered by the connector.' : 'Shows your real demo account and prices once MetaTrader 5 is connected.'}
+        actions={!connector.loading ? <ConnectorStatusBadge state={connector.state} size="md" /> : undefined}
+      />
+      {connector.loading ? (
+        <Skeleton className="h-40 w-full" />
+      ) : !everVerified ? (
+        <EmptyState
+          size="sm"
+          icon={PlugZap}
+          title={conn || connector.agent ? 'Waiting for a verified demo account' : 'MetaTrader 5 is not connected'}
+          description="Pair the read-only Windows connector and log MT5 into your demo account. No prices or balances are shown until real data arrives."
+          actions={
+            <Button asChild size="sm" variant="primary">
+              <Link to="/connections">Open connection setup</Link>
+            </Button>
+          }
+        />
+      ) : (
+        <div className="space-y-8">
+          {connector.state !== 'connected' && (
+            <Callout tone="warning" title="Not current">
+              The connection is {connector.state === 'disconnected' ? 'disconnected' : 'not live'} — the values below are the last ones received, with their times.
+            </Callout>
+          )}
+          <AccountOverview connection={conn!} account={account.data} loading={account.isPending} connected={connector.connected} prefs={prefs} now={connector.now} />
+          <MarketPanel connection={conn!} connected={connector.connected} prefs={prefs} now={connector.now} />
+        </div>
+      )}
     </section>
   );
 }

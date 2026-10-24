@@ -10,9 +10,18 @@ interface LiveContextValue {
   activity: LiveStatus;
   tasks: LiveStatus;
   agents: LiveStatus;
+  mt5Connection: LiveStatus;
+  mt5Account: LiveStatus;
+  mt5Quotes: LiveStatus;
+  mt5Positions: LiveStatus;
+  mt5Orders: LiveStatus;
 }
 
-const LiveContext = createContext<LiveContextValue>({ settings: 'closed', activity: 'closed', tasks: 'closed', agents: 'closed' });
+const closed: LiveContextValue = {
+  settings: 'closed', activity: 'closed', tasks: 'closed', agents: 'closed',
+  mt5Connection: 'closed', mt5Account: 'closed', mt5Quotes: 'closed', mt5Positions: 'closed', mt5Orders: 'closed',
+};
+const LiveContext = createContext<LiveContextValue>(closed);
 
 type Source = { key: keyof LiveContextValue; table: Parameters<RealtimeService['watchRows']>[0]['table']; filter?: string; invalidate: QueryKey };
 
@@ -29,7 +38,9 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
   const { realtime } = useServices();
   const user = useCurrentUser();
   const qc = useQueryClient();
-  const [status, setStatus] = useState<LiveContextValue>({ settings: 'connecting', activity: 'connecting', tasks: 'connecting', agents: 'connecting' });
+  const [status, setStatus] = useState<LiveContextValue>(
+    () => Object.fromEntries(Object.keys(closed).map((k) => [k, 'connecting'])) as unknown as LiveContextValue,
+  );
 
   useEffect(() => {
     const sources: Source[] = [
@@ -38,6 +49,12 @@ export function LiveDataProvider({ children }: { children: ReactNode }) {
       { key: 'tasks', table: 'tasks', filter: `owner_user_id=eq.${user.id}`, invalidate: queryKeys.tasks(user.id) },
       // Agents are not per-user; RLS limits delivery to the owner.
       { key: 'agents', table: 'agents', invalidate: queryKeys.agents(user.id) },
+      // Phase 4: read-only MT5 data published by the connector (owner's rows only, RLS applies).
+      { key: 'mt5Connection', table: 'mt5_connections', filter: `owner_user_id=eq.${user.id}`, invalidate: queryKeys.mt5Connections(user.id) },
+      { key: 'mt5Account', table: 'mt5_account_state', filter: `owner_user_id=eq.${user.id}`, invalidate: queryKeys.mt5Account(user.id) },
+      { key: 'mt5Quotes', table: 'mt5_quotes', filter: `owner_user_id=eq.${user.id}`, invalidate: queryKeys.mt5Quotes(user.id) },
+      { key: 'mt5Positions', table: 'mt5_positions', filter: `owner_user_id=eq.${user.id}`, invalidate: queryKeys.mt5Trades(user.id) },
+      { key: 'mt5Orders', table: 'mt5_orders', filter: `owner_user_id=eq.${user.id}`, invalidate: queryKeys.mt5Trades(user.id) },
     ];
     const stops = sources.map((s) => {
       let last: LiveStatus = 'connecting';

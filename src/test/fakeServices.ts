@@ -12,6 +12,7 @@ import type { AuditEvent } from '@/domain/audit';
 import type { Profile } from '@/domain/profile';
 import type { UserSettings } from '@/domain/settings';
 import { eligibleAgents, type Agent, type Task, type TaskAttempt, type TaskType } from '@/domain/tasks';
+import type { AccountSnapshot, AccountState, Bar, Deal, Mt5Connection, Mt5Symbol, PendingOrder, Position, Quote } from '@/domain/mt5';
 import type { AuthChangeEvent, AuthSession, LiveStatus, Services } from '@/services/types';
 
 type Listener = (event: AuthChangeEvent, session: AuthSession | null) => void;
@@ -24,6 +25,21 @@ export interface FakeOptions {
   email?: string;
   displayName?: string | null;
   agents?: Agent[];
+  mt5?: Partial<FakeMt5Data>;
+}
+
+/** In-memory MT5 data for component tests. TEST DATA ONLY — never shown as a real connection. */
+export interface FakeMt5Data {
+  connections: Mt5Connection[];
+  account: AccountState | null;
+  snapshots: AccountSnapshot[];
+  symbols: Mt5Symbol[];
+  quotes: Quote[];
+  bars: Bar[];
+  positions: Position[];
+  orders: PendingOrder[];
+  deals: Deal[];
+  pairingCodes: string[];
 }
 
 export interface FakeBackend {
@@ -39,6 +55,7 @@ export interface FakeBackend {
   tasks: () => Task[];
   agents: () => Agent[];
   setAgents: (agents: Agent[]) => void;
+  mt5: FakeMt5Data;
   /** Simulate a change made in another tab (bumps revision). */
   externalSettingsChange: (patch: Partial<UserSettings>) => void;
   /** Simulate the server ending the session (e.g. refresh token expired). */
@@ -79,6 +96,10 @@ export function createFakeBackend(opts: FakeOptions = {}): FakeBackend {
   const tasks: Task[] = [];
   const keys = new Map<string, string>();
   const attempts: TaskAttempt[] = [];
+  const mt5: FakeMt5Data = {
+    connections: [], account: null, snapshots: [], symbols: [], quotes: [], bars: [], positions: [], orders: [], deals: [], pairingCodes: [],
+    ...opts.mt5,
+  };
   const taskTypes: TaskType[] = [
     {
       task_type: 'system.health_check',
@@ -156,6 +177,7 @@ export function createFakeBackend(opts: FakeOptions = {}): FakeBackend {
     setAgents: (a) => {
       agents = a;
     },
+    mt5,
     services: {
       auth: {
         async getSession() {
@@ -254,14 +276,15 @@ export function createFakeBackend(opts: FakeOptions = {}): FakeBackend {
         },
       },
       audit: {
-        async listRecent(_uid, { limit, before }) {
+        async listRecent(_uid, { limit, before, eventPrefixes }) {
           await tick();
           takeFailure('audit.listRecent');
           requireSession();
           const ordered = [...events].sort((x, y) => (x.created_at === y.created_at ? (x.id < y.id ? 1 : -1) : x.created_at < y.created_at ? 1 : -1));
+          const scoped = eventPrefixes?.length ? ordered.filter((e) => eventPrefixes.some((p) => e.event_type.startsWith(p))) : ordered;
           const list = before
-            ? ordered.filter((e) => e.created_at < before.createdAt || (e.created_at === before.createdAt && e.id < before.id))
-            : ordered;
+            ? scoped.filter((e) => e.created_at < before.createdAt || (e.created_at === before.createdAt && e.id < before.id))
+            : scoped;
           return { events: list.slice(0, limit), hasMore: list.length > limit };
         },
         async listTimestampsSince(_uid, since) {
@@ -341,6 +364,71 @@ export function createFakeBackend(opts: FakeOptions = {}): FakeBackend {
           await tick();
           requireSession();
           return agents;
+        },
+      },
+      mt5: {
+        async listConnections() {
+          await tick();
+          requireSession();
+          return mt5.connections;
+        },
+        async getAccountState() {
+          await tick();
+          return mt5.account;
+        },
+        async listSnapshots() {
+          await tick();
+          return { snapshots: mt5.snapshots, truncated: false };
+        },
+        async listSymbols() {
+          await tick();
+          return mt5.symbols;
+        },
+        async listQuotes() {
+          await tick();
+          return mt5.quotes;
+        },
+        async listBars() {
+          await tick();
+          return mt5.bars;
+        },
+        async listPositions() {
+          await tick();
+          return mt5.positions;
+        },
+        async listOrders() {
+          await tick();
+          return mt5.orders;
+        },
+        async listDeals() {
+          await tick();
+          return mt5.deals;
+        },
+        async createPairing() {
+          await tick();
+          requireSession();
+          const code = 'TEST-0000-0000-0000-0001';
+          mt5.pairingCodes.push(code);
+          return { code, expiresAt: new Date(Date.now() + 600_000).toISOString() };
+        },
+        async setMonitoredSymbols(_id, symbols) {
+          await tick();
+          mt5.symbols = mt5.symbols.map((x) => ({ ...x, monitored: symbols.includes(x.name) }));
+        },
+        async updateSettings() {
+          await tick();
+        },
+        async disconnect(id) {
+          await tick();
+          mt5.connections = mt5.connections.map((c) => (c.id === id ? { ...c, status: 'disconnected', status_reason: 'disconnected_by_owner', disconnected_at: now() } : c));
+        },
+        async resume(id) {
+          await tick();
+          mt5.connections = mt5.connections.map((c) => (c.id === id ? { ...c, status: 'awaiting_verification', status_reason: null, disconnected_at: null } : c));
+        },
+        async revokeAgent(id) {
+          await tick();
+          agents = agents.map((a) => (a.id === id ? { ...a, revoked_at: now() } : a));
         },
       },
       realtime: {

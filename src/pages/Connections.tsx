@@ -1,107 +1,80 @@
 import type { ReactNode } from 'react';
-import {
-  ArrowLeftRight,
-  Check,
-  Cloud,
-  Cpu,
-  Download,
-  Globe,
-  HeartPulse,
-  History,
-  Laptop,
-  Minus,
-  RefreshCw,
-  Server,
-  UserRound,
-  type LucideIcon,
-} from 'lucide-react';
-import { Badge, Button, Callout, EmptyState, SectionHeader, Term, Tooltip } from '@/components/ui';
-import { ConnectionStateIcon } from '@/components/domain/ConnectionStatus';
+import { ArrowLeftRight, Cpu, Globe, HeartPulse, History, PlugZap, RefreshCw, Server, ShieldCheck, UserRound, type LucideIcon } from 'lucide-react';
+import { Badge, Button, Callout, EmptyState, SectionHeader, Skeleton, Term } from '@/components/ui';
+import { AgentPresenceBadge } from '@/components/domain/AgentList';
+import { AuditEventList } from '@/components/domain/AuditEventList';
 import { DiagnosticsSection } from '@/components/domain/DiagnosticsSection';
+import { LiveIndicator } from '@/components/domain/LiveIndicator';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { connectionStateLabel, type ConnectionState } from '@/config/integrations';
-import { usePreviewNotice } from '@/lib/previewNotice';
+import { ConnectionWizard } from '@/components/mt5/ConnectionWizard';
+import { ConnectorStatusBadge } from '@/components/mt5/ConnectorStatusBadge';
+import { displayMaskedAccount } from '@/domain/mt5';
+import { useConnectorEvents } from '@/hooks/useAudit';
+import { useDisplayPrefs } from '@/hooks/useDisplayPrefs';
+import { useConnector } from '@/hooks/useMt5';
+import { formatDateTime, formatRelativeTime } from '@/lib/datetime';
+import { toAppError } from '@/lib/errors';
+import { useLiveStatus } from '@/lib/live';
 
-const healthRows: { label: ReactNode; state: ConnectionState; value?: string; detail: string }[] = [
-  { label: 'MT5 terminal', state: 'not_connected', detail: 'No terminal has reported in.' },
-  { label: 'Local Windows connector', state: 'not_configured', detail: 'Not installed on this or any computer.' },
-  { label: 'VPS connector', state: 'not_configured', detail: 'No VPS has been registered.' },
-  { label: 'Active agent', state: 'not_configured', value: 'None', detail: 'The connector currently in charge of MT5.' },
-  { label: 'Health', state: 'not_connected', value: 'Unknown', detail: 'Health checks start after the first connection.' },
-  { label: <Term k="heartbeat">Last heartbeat</Term>, state: 'not_connected', value: 'Never', detail: 'Expected every 30 seconds once connected.' },
-];
 
 export default function ConnectionsPage() {
-  const showPreview = usePreviewNotice();
-  const later = (title: string, body: string) =>
-    showPreview({ title, body, requires: 'The Windows connector, planned for a later phase.' });
+  const connector = useConnector();
+  const prefs = useDisplayPrefs();
+  const live = useLiveStatus();
 
   return (
     <>
       <PageHeader
         title="Connections & VPS"
-        description="Link TradePilot to MetaTrader 5. Testing and demo trading happen inside MT5 on a Windows computer — this page manages that link."
+        description="Link TradePilot to MetaTrader 5 on your Windows computer. In this version the link is read-only: TradePilot reads your demo account and market prices — it cannot place or change trades."
       />
 
       <section aria-labelledby="how-title" className="surface mb-6 overflow-hidden p-5 sm:p-6">
         <SectionHeader
           id="how-title"
           title="How the pieces fit together"
-          description="The website is where you manage your research. The Windows connector communicates with the MT5 terminal that performs testing and demo execution."
+          description="The connector runs next to MT5 on your computer and sends read-only data out to TradePilot over HTTPS. Nothing connects into your computer, and no port needs to be opened."
         />
         <ol className="grid grid-cols-1 items-stretch gap-3 md:grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr]">
-          <FlowNode icon={Globe} title="TradePilot website" text="Plan, review and approve. Runs in your browser." tag="You are here" />
+          <FlowNode icon={Globe} title="TradePilot website" text="Shows your account and prices. Runs in your browser." tag="You are here" />
           <FlowArrow />
-          <FlowNode icon={ArrowLeftRight} title={<Term k="connector">Windows connector</Term>} text="Passes instructions and results back and forth." />
+          <FlowNode icon={ArrowLeftRight} title={<Term k="connector">Windows connector</Term>} text="Reads MT5 and sends verified data to TradePilot." />
           <FlowArrow />
-          <FlowNode icon={Cpu} title="MT5 terminal" text="Runs Expert Advisors and the Strategy Tester." />
+          <FlowNode icon={Cpu} title="MT5 terminal" text="Logged into your demo account. Your password stays here." />
           <FlowArrow />
-          <FlowNode icon={Server} title="Broker demo server" text="Provides prices and simulated trade execution." />
+          <FlowNode icon={Server} title="Broker demo server" text="Provides prices and the simulated account." />
         </ol>
         <Callout tone="info" className="mt-5">
-          A web page cannot run an Expert Advisor by itself. Anything that needs MT5 — backtests, demo trading, compiling code —
-          requires a connected, running terminal.
+          Read-only in this version: no orders, no Expert Advisors, no automated trading. Running the connector on a VPS uses the same
+          program; a guided VPS setup arrives in a later phase.
         </Callout>
       </section>
 
-      <section aria-labelledby="where-title" className="mb-6">
-        <SectionHeader id="where-title" title="Where should MT5 run?" description="Choose one to start. You can switch later." />
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <HostCard
-            icon={Laptop}
-            title="Run on My Computer"
-            subtitle="Best for getting started"
-            pros={['Free — uses your own Windows PC', 'Quick to set up and inspect']}
-            cons={['Only works while the computer is on and awake', 'Home internet interruptions pause testing']}
-            steps={['Install MetaTrader 5 and log in to a demo account', 'Download and run the TradePilot connector', 'Enter the pairing code shown on this page']}
-            action={
-              <div className="flex flex-wrap items-center gap-3">
-                <Tooltip content="The connector download becomes available in a later phase.">
-                  <span tabIndex={0} className="inline-flex rounded-md">
-                    <Button variant="primary" leadingIcon={<Download />} disabled>
-                      Download connector
-                    </Button>
-                  </span>
-                </Tooltip>
-                <span className="text-fg-3 text-xs">Available in a later phase</span>
-              </div>
-            }
-          />
-          <HostCard
-            icon={Cloud}
-            title="Run on a VPS"
-            subtitle="Best for running around the clock"
-            badge={<Term k="vps">What is a VPS?</Term>}
-            pros={['Runs 24 hours a day in a data centre', 'Stable connection close to broker servers']}
-            cons={['Monthly cost from your VPS provider', 'Needs a Windows VPS and remote-desktop access']}
-            steps={['Rent a Windows VPS and install MetaTrader 5', 'Install the TradePilot connector on the VPS', 'Pair it with this website using a one-time code']}
-            action={
-              <Button variant="secondary" leadingIcon={<Server />} onClick={() => later('Set up a VPS connector', 'A guided setup will walk you through installing the connector on a Windows VPS and pairing it securely.')}>
-                View VPS setup guide
-              </Button>
-            }
-          />
-        </div>
+      <section aria-labelledby="mt5-title" className="surface mb-6 p-5 sm:p-6">
+        <SectionHeader
+          id="mt5-title"
+          title={
+            <>
+              <PlugZap className="text-fg-3 size-[18px]" aria-hidden /> Connect MetaTrader 5
+            </>
+          }
+          description="Seven steps, each confirmed by what the connector actually reports."
+          actions={
+            <div className="flex items-center gap-3">
+              <LiveIndicator status={live.mt5Connection} />
+              {!connector.loading && <ConnectorStatusBadge state={connector.state} size="md" />}
+            </div>
+          }
+        />
+        {connector.loading ? (
+          <Skeleton className="h-64 w-full" />
+        ) : connector.error ? (
+          <Callout tone="danger" title="Connection status couldn’t be loaded" actions={<Button size="sm" variant="secondary" onClick={() => void connector.refetch()}>Retry</Button>}>
+            {toAppError(connector.error).userMessage}
+          </Callout>
+        ) : (
+          <ConnectionWizard connection={connector.connection} agent={connector.agent} state={connector.state} prefs={prefs} now={connector.now} />
+        )}
       </section>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -113,22 +86,9 @@ export default function ConnectionsPage() {
                 <HeartPulse className="text-fg-3 size-[18px]" aria-hidden /> Connection health
               </>
             }
-            description="Live status will be reported by the connector. Nothing is connected yet."
+            description="Reported by the connector and the server — never assumed."
           />
-          <dl className="divide-line-soft divide-y">
-            {healthRows.map((r, i) => (
-              <div key={i} className="flex items-start justify-between gap-4 py-3">
-                <div className="min-w-0">
-                  <dt className="text-fg text-sm font-medium">{r.label}</dt>
-                  <p className="text-fg-3 text-xs">{r.detail}</p>
-                </div>
-                <dd className="text-fg-2 flex shrink-0 items-center gap-1.5 text-sm">
-                  <ConnectionStateIcon state={r.state} className="size-3.5" />
-                  {r.value ?? connectionStateLabel[r.state]}
-                </dd>
-              </div>
-            ))}
-          </dl>
+          <ConnectionHealth connector={connector} prefs={prefs} />
         </section>
 
         <div className="space-y-6">
@@ -143,10 +103,16 @@ export default function ConnectionsPage() {
               }
             />
             <ol className="text-fg-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed marker:text-fg-3">
-              <li>Check that the Windows computer or VPS is switched on and online.</li>
-              <li>Open MetaTrader 5 and confirm it is logged in to your demo account.</li>
-              <li>Restart the TradePilot connector from the Windows system tray.</li>
-              <li>Wait for a fresh heartbeat here — usually within a minute.</li>
+              <li>Check that the Windows computer is on, awake and online.</li>
+              <li>Open MetaTrader 5 and confirm it is logged into your demo account and connected to the broker.</li>
+              <li>
+                In the connector folder run <code>.\tradepilot-connector.cmd check</code> — it explains what is wrong in plain English.
+              </li>
+              <li>
+                Restart the connector with <code>.\tradepilot-connector.cmd start</code>; see recent messages with{' '}
+                <code>.\tradepilot-connector.cmd logs</code>.
+              </li>
+              <li>Wait for a fresh status report here — usually within 30 seconds.</li>
             </ol>
           </section>
 
@@ -160,7 +126,7 @@ export default function ConnectionsPage() {
                 </>
               }
             />
-            <EmptyState size="sm" icon={History} title="No connection events" description="Connects, disconnects and switches between computer and VPS will be logged here." />
+            <ConnectionHistory prefs={prefs} />
           </section>
         </div>
       </div>
@@ -168,6 +134,76 @@ export default function ConnectionsPage() {
       <DiagnosticsSection />
     </>
   );
+}
+
+function HealthRow({ label, detail, children }: { label: ReactNode; detail: string; children: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-3">
+      <div className="min-w-0">
+        <dt className="text-fg text-sm font-medium">{label}</dt>
+        <p className="text-fg-3 text-xs">{detail}</p>
+      </div>
+      <dd className="text-fg-2 flex shrink-0 items-center gap-1.5 text-right text-sm">{children}</dd>
+    </div>
+  );
+}
+
+function ConnectionHealth({ connector, prefs }: { connector: ReturnType<typeof useConnector>; prefs: ReturnType<typeof useDisplayPrefs> }) {
+  const { connection: c, agent, now } = connector;
+  const ago = (iso: string | null | undefined) =>
+    iso ? (
+      <time dateTime={iso} title={formatDateTime(iso, prefs)}>
+        {formatRelativeTime(iso, now)}
+      </time>
+    ) : (
+      'Never'
+    );
+  return (
+    <dl className="divide-line-soft divide-y">
+      <HealthRow label="Connector" detail="The program on your Windows computer.">
+        {agent ? (
+          <>
+            <AgentPresenceBadge agent={agent} now={now} /> {agent.agent_version ? `v${agent.agent_version}` : ''}
+          </>
+        ) : (
+          'Not paired'
+        )}
+      </HealthRow>
+      <HealthRow label="MT5 terminal" detail="Reported by the connector at its last check.">
+        {!c ? '—' : c.terminal_connected === null ? 'Not reported' : c.terminal_connected ? `Connected to broker · build ${c.terminal_build ?? '?'}` : 'Not connected to broker'}
+      </HealthRow>
+      <HealthRow label="Demo account" detail="Verified from MT5’s own account-type value.">
+        {c?.status === 'verified' ? (
+          <span className="text-positive inline-flex items-center gap-1">
+            <ShieldCheck className="size-4" aria-hidden /> {displayMaskedAccount(c.masked_account)}
+          </span>
+        ) : c ? (
+          <ConnectorStatusBadge state={connector.state} />
+        ) : (
+          'Not verified'
+        )}
+      </HealthRow>
+      <HealthRow label={<Term k="heartbeat">Last heartbeat</Term>} detail="Sent every 20 seconds while the connector runs.">
+        {ago(agent?.last_heartbeat_at)}
+      </HealthRow>
+      <HealthRow label="Last price update" detail="Only sent when a new tick arrives.">
+        {ago(c?.last_quotes_at)}
+      </HealthRow>
+      <HealthRow label="Last account update" detail="Balance, equity and margin.">
+        {ago(c?.last_account_at)}
+      </HealthRow>
+    </dl>
+  );
+}
+
+function ConnectionHistory({ prefs }: { prefs: ReturnType<typeof useDisplayPrefs> }) {
+  const events = useConnectorEvents(6);
+  if (events.isPending) return <Skeleton className="h-24 w-full" />;
+  if (events.isError) return <Callout tone="danger">{toAppError(events.error).userMessage}</Callout>;
+  if (events.data.events.length === 0) {
+    return <EmptyState size="sm" icon={History} title="No connection events" description="Pairing, verification, blocks and disconnects are recorded here." />;
+  }
+  return <AuditEventList events={events.data.events} prefs={prefs} />;
 }
 
 function FlowNode({ icon: Icon, title, text, tag }: { icon: LucideIcon; title: ReactNode; text: string; tag?: string }) {
@@ -194,61 +230,5 @@ function FlowArrow() {
     <li aria-hidden className="text-fg-3 flex items-center justify-center md:px-0">
       <ArrowLeftRight className="size-4 rotate-90 md:rotate-0" />
     </li>
-  );
-}
-
-interface HostCardProps {
-  icon: LucideIcon;
-  title: string;
-  subtitle: string;
-  badge?: ReactNode;
-  pros: string[];
-  cons: string[];
-  steps: string[];
-  action: ReactNode;
-}
-
-function HostCard({ icon: Icon, title, subtitle, badge, pros, cons, steps, action }: HostCardProps) {
-  return (
-    <article className="surface flex flex-col p-5 sm:p-6">
-      <div className="flex items-start gap-3">
-        <span className="bg-accent-soft text-accent flex size-11 shrink-0 items-center justify-center rounded-lg">
-          <Icon className="size-5" aria-hidden strokeWidth={1.75} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-fg text-md font-semibold">{title}</h3>
-          <p className="text-fg-3 text-sm">{subtitle}</p>
-        </div>
-        {badge && <span className="text-fg-2 text-xs">{badge}</span>}
-      </div>
-      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <ul className="space-y-1.5 text-sm" aria-label="Advantages">
-          {pros.map((p) => (
-            <li key={p} className="text-fg-2 flex gap-2">
-              <Check className="text-positive mt-0.5 size-4 shrink-0" aria-label="Advantage" /> {p}
-            </li>
-          ))}
-        </ul>
-        <ul className="space-y-1.5 text-sm" aria-label="Trade-offs">
-          {cons.map((c) => (
-            <li key={c} className="text-fg-2 flex gap-2">
-              <Minus className="text-fg-3 mt-0.5 size-4 shrink-0" aria-label="Trade-off" /> {c}
-            </li>
-          ))}
-        </ul>
-      </div>
-      <div className="border-line-soft mt-5 border-t pt-4">
-        <p className="eyebrow mb-2">Setup steps</p>
-        <ol className="space-y-2">
-          {steps.map((s, i) => (
-            <li key={s} className="text-fg-2 flex gap-3 text-sm">
-              <span className="border-line text-fg-3 num flex size-5 shrink-0 items-center justify-center rounded-full border text-xs">{i + 1}</span>
-              {s}
-            </li>
-          ))}
-        </ol>
-      </div>
-      <div className="mt-auto pt-5">{action}</div>
-    </article>
   );
 }

@@ -78,7 +78,7 @@ export default function BacktestingPage() {
       title: 'Run Backtest',
       body: 'Backtests will run in the MetaTrader 5 Strategy Tester on your computer or VPS. Results will appear in the report on this page.',
       notDone: 'No backtest was started. Your settings were checked in the browser only.',
-      requires: 'A connected MT5 terminal and the Windows connector (later phase).',
+      requires: 'Backtest execution through the connector (later phase — today it only reads your demo account and prices).',
     });
   };
 

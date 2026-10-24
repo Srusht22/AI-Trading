@@ -117,7 +117,8 @@ export const glossary = {
   },
   connector: {
     term: 'Windows connector',
-    definition: 'A small program running on Windows beside MT5. It passes instructions and results between MT5 and this website.',
+    definition: 'A small program running on Windows beside MT5. It reads your demo account and prices from MT5 and sends them to this website over HTTPS.',
+    more: 'In this version it is read-only: it cannot place, change or close trades. Your MT5 password never leaves MT5.',
   },
   vps: {
     term: 'VPS',
@@ -143,6 +144,27 @@ export const glossary = {
   pendingOrder: {
     term: 'Pending order',
     definition: 'An order waiting to be triggered when price reaches a level you chose in advance.',
+  },
+  margin: {
+    term: 'Margin',
+    definition: 'The part of your account the broker sets aside as a deposit while trades are open.',
+    more: 'Free margin is what is left for new trades. Margin level is equity divided by used margin, as a percentage; brokers close trades if it falls too low.',
+  },
+  bidAsk: {
+    term: 'Bid and ask',
+    definition: 'Bid is the price you can sell at, ask the price you can buy at. The difference is the spread.',
+  },
+  tick: {
+    term: 'Tick',
+    definition: 'A single price update from the broker. Quiet or closed markets produce few or no ticks, so a price can be minutes or days old.',
+  },
+  position: {
+    term: 'Position',
+    definition: 'A trade that is currently open in the account. Its profit or loss changes with the price until it is closed.',
+  },
+  deal: {
+    term: 'Deal',
+    definition: 'A completed transaction in the account history: a trade opening or closing, or a balance operation such as a deposit.',
   },
 } satisfies Record<string, GlossaryEntry>;
 

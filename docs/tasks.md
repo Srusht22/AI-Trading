@@ -1,10 +1,12 @@
 # TradePilot AI — Durable tasks and agent protocol (Phase 3)
 
 A Postgres-backed queue (migration `supabase/migrations/20261025090000_task_queue.sql`)
-for work that must happen outside the browser. Today the only runnable task
-is the harmless `system.health_check`. MT5 and strategy task types are
-registered so the contract is fixed, but they are **unavailable**: submission
-is refused with the reason and no agent is ever offered them.
+for work that must happen outside the browser. Runnable today: the harmless
+`system.health_check` and, since Phase 4, seven **read-only** MetaTrader 5
+tasks (§10). MT5 execution types (`mt5.compile_ea`, `mt5.backtest`,
+`mt5.collect_report`) and `strategy.evaluate` stay registered but
+**unavailable**: submission is refused with the reason and no agent is ever
+offered them.
 
 ## 1. Schema
 
@@ -156,3 +158,56 @@ has no database or Supabase credentials.
 * No result storage beyond 4 KB JSON (reports/files belong in Storage later).
 * No priority or per-type concurrency yet; FIFO by `available_at`.
 * Task history is not pruned yet.
+
+## 10. Read-only MT5 tasks (Phase 4)
+
+Migration `20261026090000_mt5_connector.sql`. Every type below requires the
+capability `mt5.read`, connector version ≥ 1.0.0, a payload ≤ 256 bytes with
+exactly the listed keys, and a connection that belongs to the submitting owner
+and is **verified as a demo account** (`mt5.terminal_status` may also run
+while verification is pending). The task is **targeted** at that connection's
+agent (`tasks.target_agent_id`): no other agent can claim it. Lease 60 s
+(120 s for symbol list and history), 2 attempts, 5-minute queue deadline.
+
+| Type | Payload | Connector does (read-only) | Result (≤ 4 KB) | Failure codes |
+| --- | --- | --- | --- | --- |
+| `mt5.terminal_status` | `connection_id` | `terminal_info`, `version`, `account_info`; sends a verification report | `state`, `trade_mode`, `terminal_build`, `terminal_connected`, `demo_verified` | — |
+| `mt5.account_snapshot` | `connection_id` | `account_info` → publishes `account` | `published` | `account_not_verified`, `account_unavailable` |
+| `mt5.symbol_list` | `connection_id` | `symbols_get` → publishes `symbols` in pages of 500 | `symbols` (count) | `symbols_unavailable`, `publish_failed` |
+| `mt5.price_history` | `connection_id`, `symbol`, `timeframe` (M1/M5/M15/H1), `count` (10–500) | `symbol_info` (+`symbol_select` if hidden), `copy_rates_from_pos` → publishes `bars` | `bars`, `first_bar_at`, `last_bar_at` | `symbol_unavailable`, `history_unavailable`, `malformed_mt5_data` |
+| `mt5.positions_read` | `connection_id` | `positions_get` → publishes `positions` | `positions` (count) | `positions_unavailable`, `malformed_mt5_data` |
+| `mt5.pending_orders_read` | `connection_id` | `orders_get` → publishes `orders` | `orders` (count) | `orders_unavailable` |
+| `mt5.recent_history_read` | `connection_id`, `days` (1–30) | `history_deals_get` for the window → publishes newest 500 `deals` | `deals`, `days` | `history_unavailable` |
+
+Every data task re-verifies the demo account first and fails with
+`account_not_verified` (not retried) otherwise. Unknown types fail with
+`unsupported_task`. Results never contain account numbers or names.
+
+There is no task type, API action or database function that sends, modifies,
+cancels or closes an order, or starts an Expert Advisor. The connector reaches
+MT5 only through an allow-list wrapper (`connector/tradepilot_connector/terminal.py`),
+and `connector/tests/test_readonly.py` fails the build if the source references
+`order_send`, `order_check`, `Buy`, `Sell`, `Close`, `login` or trade-action
+constants.
+
+### Continuous data (telemetry) — why not the queue
+
+Quotes and the account summary change every few seconds; one queued task per
+tick would flood the queue. They use two extra agent actions on the same
+authenticated endpoint, with the same token and capability model:
+
+* `POST /api/agent/mt5-connection` — the verification report (state, account
+  type code, account fingerprint, masked account, server, currency, terminal
+  build). The server decides `verified` / `blocked` / `awaiting_verification`
+  and answers with the owner's symbol choice and intervals.
+* `POST /api/agent/mt5-publish` — `{connection_id, account_fingerprint, kind, data}`
+  for kind `account | quotes | symbols | bars | positions | orders | deals`.
+  Accepted only for the agent's own connection, only while it is `verified`,
+  only with the bound account fingerprint (a different one blocks the
+  connection), at most once per 0.8 s (quotes), 4 s (account), 2 s
+  (positions/orders), 5 s (deals); strict schemas and list limits (8 quotes,
+  1000 symbols per page, 1000 bars, 200 positions/orders, 500 deals); 512 KB
+  body limit.
+
+`POST /api/agent/pair` registers a new connector from an owner-issued one-time
+code (see security.md §7).

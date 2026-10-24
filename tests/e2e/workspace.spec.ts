@@ -136,8 +136,8 @@ test.describe('honest data', () => {
     const email = await createOwner('honest');
     await signIn(page, email);
     await expect(page.getByText('This is your real workspace')).toBeVisible();
-    await expect(page.getByText('No performance data yet')).toBeVisible();
-    await expect(page.getByText('Data unavailable')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'No account connected' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'MetaTrader 5 is not connected' })).toBeVisible();
     await expect(page.locator('.recharts-area-curve')).toHaveCount(0);
     expect(await page.locator('main').innerText()).not.toMatch(/\$\d/);
   });

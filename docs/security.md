@@ -167,3 +167,23 @@ privileged actions, owner MFA, preferably HttpOnly server-managed sessions.
 The agent protocol is designed so a future MT5 connector uses the same
 token/lease model; its task types must get explicit payload contracts and a
 human approval step before they are made available.
+
+## 7. Phase 4: read-only MT5 connector
+
+| Concern | Control |
+| --- | --- |
+| Broker password | Never requested, stored or transmitted. The connector calls `initialize()` with no credentials and uses the terminal the user already logged into; it never calls `login()`. |
+| Demo-only | The connection is `verified` only when the connector reports MT5's own `ACCOUNT_TRADE_MODE` = 0 (demo) **and** the server accepts the report. Real (2), contest (1), missing or unknown → `blocked`; nothing about that account (number, server, currency, values) is stored. Server name, account number, the DEMO badge or any user choice are never used as evidence. The connector re-verifies before every publish cycle (≈1 s) and ends publication the moment the mode or account changes; the server independently refuses any publish while not `verified` and blocks the connection if a publish carries a different account fingerprint. |
+| Account identity | Full account number and holder name never leave the PC. The server stores `****821` (last 3 digits) and an HMAC fingerprint keyed with a per-installation secret, enough to detect an account switch without revealing the number. A switch requires the owner's explicit approval, which deletes the previous account's data. |
+| Trading | No order/EA capability, task type, API action or database function exists. The connector reaches `MetaTrader5` only through an allow-list proxy (14 read functions); `order_send`, `order_check`, `Buy`, `Sell`, `Close`, `login` raise. A static AST scan (`connector/tests/test_readonly.py`) fails CI if the source references them. Demo Trading controls (start/stop robot, emergency stop) are disabled with an explanation. |
+| Pairing | `create_agent_pairing` (owner + live session) returns an 80-bit one-time code valid 10 minutes; only its SHA-256 is stored; ≤ 3 unused codes and ≤ 10 per hour per owner. `POST /api/agent/pair` registers the hash of a token **generated on the PC**; the code is single-use and grants only `mt5.read`. The token is never shown in the browser or any response. Brute force is infeasible (2^80 codes, 10-minute life). This is an owner-approved enrolment, not an open registration. |
+| Agent key on Windows | `%LOCALAPPDATA%\TradePilot\Connector\secrets.bin`, encrypted with DPAPI (current user); never printed (`status` shows only that it exists); logs are redacted; `reset` overwrites and deletes it. |
+| Transport | The connector refuses to send its token over plain HTTP except to `localhost`/`127.0.0.1`. Hosted environments require HTTPS (build and server guards from Phase 3). No inbound port, no local server, no WebSocket listener. |
+| Least privilege | `mt5.read` permits: verification reports, publishing data for **its own** connection, claiming `mt5.*` read tasks **targeted at it**. It cannot read other users' data, change ownership, issue tokens or touch the queue beyond its leases. Ownership columns are immutable (trigger). |
+| Data validation | zod schemas at the edge (strict, per kind, size limits) and again in SQL (types, ranges, OHLC consistency, ask ≥ bid, UTC timestamps not in the future by > 1 day, credential-like keys refused at any depth, list limits, per-kind rate limits). |
+| Supply chain | `MetaTrader5==5.0.6231` (official MetaQuotes package) and `numpy==2.5.3`, installed with `--require-hashes --only-binary=:all:`; hashes for Python 3.12/3.13 win_amd64 recorded in `connector/requirements.txt`. No other MT5 libraries. |
+
+Accepted limits: the server must trust the connector's report of the account
+type — an attacker controlling the owner's PC and its agent key could lie
+about it. This is why trading controls remain absent and why Phase 5+ must add
+execution-time checks on the PC and server before any order capability exists.

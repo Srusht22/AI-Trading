@@ -42,6 +42,11 @@ export type ApiErrorCode =
   | 'lease_lost'
   | 'invalid_state'
   | 'rate_limited'
+  | 'forbidden'
+  | 'connection_disconnected'
+  | 'connection_blocked'
+  | 'verification_required'
+  | 'pairing_invalid'
   | 'server_misconfigured'
   | 'upstream_unavailable'
   | 'internal_error';

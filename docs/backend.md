@@ -1,4 +1,4 @@
-# TradePilot AI — Backend, authentication and data architecture (Phases 2–3)
+# TradePilot AI — Backend, authentication and data architecture (Phases 2–4)
 
 This document describes what is implemented in Phase 2, how data flows, how
 to set it up, and how it is verified. It is deliberately precise about what
@@ -9,6 +9,11 @@ Phase 3 adds a durable task queue with agent dispatch
 Pages Functions, environment separation, deployment and verification tooling
 ([deployment.md](deployment.md)). The sections below are updated where Phase 3
 changed them.
+
+Phase 4 adds the read-only MetaTrader 5 connector: a Python program on the
+owner's Windows computer that uses the same agent protocol, plus data tables
+for the verified demo account and market data ([mt5-connector.md](mt5-connector.md),
+[tasks.md](tasks.md) §10, [security.md](security.md) §7).
 
 ## 1. Decisions
 
@@ -110,12 +115,38 @@ state machine for every role. New audit events: `task.submitted`,
 `agent.revoked`. Details: [tasks.md](tasks.md). Rollback:
 `supabase/rollbacks/20261025090000_task_queue.down.sql`.
 
+### MT5 connector data (migration `20261026090000_mt5_connector.sql`, Phase 4)
+
+| Table | Contents | Bounds |
+| --- | --- | --- |
+| `mt5_connections` | one per agent: status (`awaiting_verification`/`verified`/`blocked`/`disconnected`) + reason, account fingerprint (HMAC), masked account, server, company, currency, leverage, detected account type, terminal build, broker UTC offset, intervals, last-update times | — |
+| `mt5_account_state` | current balance, credit, equity, profit, margin, free margin, margin level, `observed_at` | 1 row per connection |
+| `mt5_account_snapshots` | equity history | one per `snapshot_interval_s` (≥ 60 s); pruned after 180 days (pg_cron) |
+| `mt5_symbols` | broker symbols, digits, point, `monitored` flag | ≤ 5000 per connection; ≤ 8 monitored |
+| `mt5_quotes` | latest bid/ask per monitored symbol: `tick_time` (broker, UTC), `observed_at` (connector), `received_at` (server; changes only on a new tick) | 1 row per symbol |
+| `mt5_bars` | OHLC + tick volume for M1/M5/M15/H1 | newest 1000 per series |
+| `mt5_positions`, `mt5_orders` | current snapshot (replaced on each read) | ≤ 200 each |
+| `mt5_deals` | the last requested history window | ≤ 500 |
+
+All carry `owner_user_id` and `connection_id`; RLS lets only the owning user
+(with a live session) read them; nobody — `service_role` included — may write
+them directly. The connector writes through `mt5_report_connection` /
+`mt5_publish` (service role, via the agent API); the owner acts through
+`create_agent_pairing`, `set_mt5_monitored_symbols`,
+`update_mt5_connection_settings`, `disconnect_mt5_connection`,
+`resume_mt5_connection`, `revoke_agent`. New audit events: `agent.pairing_created`,
+`agent.paired`, `connector.verified`, `connector.blocked`,
+`connector.symbols_selected`, `connector.disconnected`, `connector.resumed`.
+Realtime publishes `mt5_connections`, `mt5_account_state`, `mt5_quotes`,
+`mt5_positions`, `mt5_orders`. Rollback:
+`supabase/rollbacks/20261026090000_mt5_connector.down.sql`.
+
 ### Planned domain tables (not created yet)
 
 Robots and versions, strategy specifications and source versions, backtest
 configurations and reports, demo accounts and trades, research experiments,
-approval requests. (Connector registration and heartbeats now exist as
-`agents`.) They will follow
+approval requests, demo trade execution. (Connector registration, heartbeats
+and read-only account data now exist.) They will follow
 the same pattern: `user_id` FK, RLS restricted to the owner via
 `public.is_owner()`, audit triggers. None are created in Phase 2 because no
 code would populate them.
@@ -164,7 +195,11 @@ Live subscriptions exist only for real sources:
 
 * `user_settings` (own row) → settings and theme update across tabs/devices;
 * `audit_events` (own events) → the dashboard and account activity update;
-* `tasks` (own tasks) and `agents` (owner only) → Connections › Diagnostics (Phase 3).
+* `tasks` (own tasks) and `agents` (owner only) → Connections › Diagnostics (Phase 3);
+* `mt5_connections`, `mt5_account_state`, `mt5_quotes`, `mt5_positions`, `mt5_orders`
+  (own rows) → connection wizard, Dashboard, Demo Trading (Phase 4). While a
+  subscription is not live the views refresh every 5–15 s and say
+  "Auto-refresh", never "Live".
 
 When a subscription becomes live again after a disconnect, its queries are
 refetched (Realtime does not replay missed changes).
@@ -173,7 +208,7 @@ The UI shows **Live** only after Realtime confirms the database subscription,
 and otherwise **Auto-refresh** (data refreshes after the user's own changes and
 on tab focus). Channels are removed on unmount and sign-out.
 
-No market, account, robot, backtest or MT5 connector data exists. Those views show
+Robot, backtest and research data does not exist yet. Those views show
 explicit `unavailable` states (`src/domain/freshness.ts`,
 `src/config/integrations.ts`) and empty charts — never generated values. The
 chart components accept typed series (`EquitySeries`, `PriceBar`) with

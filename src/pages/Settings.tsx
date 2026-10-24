@@ -19,7 +19,7 @@ import {
   Sun,
   type LucideIcon,
 } from 'lucide-react';
-import { Badge, Button, Callout, ConfirmationDialog, FormField, PageSkeleton, Select, Switch } from '@/components/ui';
+import { Badge, Button, Callout, ConfirmationDialog, FormField, PageSkeleton, Select, Skeleton, Switch } from '@/components/ui';
 import { FormAlert } from '@/components/auth/FormAlert';
 import { LiveIndicator } from '@/components/domain/LiveIndicator';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -35,6 +35,9 @@ import {
 } from '@/domain/settings';
 import { useSettings, useUpdateSettings } from '@/hooks/useAccount';
 import { cn } from '@/lib/cn';
+import { ConnectorStatusBadge } from '@/components/mt5/ConnectorStatusBadge';
+import { displayMaskedAccount } from '@/domain/mt5';
+import { useConnector } from '@/hooks/useMt5';
 import { deviceTimeZone, formatDateTime, supportedTimeZones } from '@/lib/datetime';
 import { isAppError, toAppError } from '@/lib/errors';
 import { useLiveStatus } from '@/lib/live';
@@ -273,14 +276,8 @@ function SettingsForm({ stored }: { stored: UserSettings }) {
             <p className="text-fg-2 text-sm">No AI provider is integrated yet, so there is nothing to configure. These options arrive with the AI Analyst.</p>
           </Group>
 
-          <Group id="connector" title="Connector" description="Reconnection behaviour and preferred host (computer or VPS)." later>
-            <p className="text-fg-2 text-sm">
-              The Windows connector doesn’t exist yet. See{' '}
-              <Link to="/connections" className="text-accent hover:underline">
-                Connections & VPS
-              </Link>{' '}
-              for how it will work.
-            </p>
+          <Group id="connector" title="Connector" description="The read-only MetaTrader 5 connector on your Windows computer.">
+            <ConnectorSettingsSummary />
           </Group>
 
           <Group id="security" title="Security" description="Password, sessions and your security activity log.">
@@ -451,6 +448,37 @@ function DataGroup() {
         }}
       />
     </Group>
+  );
+}
+
+/** Connector preferences live with the connection; this shows them and where to change them. */
+function ConnectorSettingsSummary() {
+  const connector = useConnector();
+  const c = connector.connection;
+  if (connector.loading) return <Skeleton className="h-16 w-full" />;
+  return (
+    <div className="space-y-3 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <ConnectorStatusBadge state={connector.state} />
+        {c?.masked_account && <span className="text-fg-2">{displayMaskedAccount(c.masked_account)} · {c.server}</span>}
+      </div>
+      {c ? (
+        <p className="text-fg-2">
+          Price checks every ~{c.quote_interval_ms / 1000} s, account every {c.account_interval_s} s, equity history every {c.snapshot_interval_s / 60} min,
+          deal history {c.history_days} days.
+        </p>
+      ) : (
+        <p className="text-fg-2">No connector is paired yet.</p>
+      )}
+      <p className="text-fg-3 text-xs">
+        Your MT5 password is never stored by TradePilot — the connector uses the terminal you are already logged into. Intervals, symbols and
+        disconnecting are managed on{' '}
+        <Link to="/connections" className="text-accent hover:underline">
+          Connections & VPS
+        </Link>
+        .
+      </p>
+    </div>
   );
 }
 

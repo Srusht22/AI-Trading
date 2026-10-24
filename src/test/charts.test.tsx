@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, within, waitFor } from '@testing-library/react';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ActivityChart } from '@/components/charts/ActivityChart';
 import { ChartContainer } from '@/components/charts/ChartContainer';
@@ -64,11 +64,10 @@ describe('chart data binding', () => {
 
   it('never represents unavailable MT5 data as live', async () => {
     await renderWorkspace('/');
-    const chart = screen.getByRole('heading', { name: 'Performance overview' }).closest('section')!;
-    expect(chart).toHaveTextContent('Data unavailable');
+    const chart = (await screen.findByRole('heading', { name: 'Demo account equity' })).closest('section')!;
     expect(chart).not.toHaveTextContent(/\bLive\b/);
     expect(chart.querySelector('.recharts-area-curve')).toBeNull();
-    expect(chart).toHaveTextContent('No performance data yet');
+    expect(await within(chart as HTMLElement).findByText('No account connected')).toBeInTheDocument();
   });
 
   it('draws the sample curve only when sample preview is on, and labels it', async () => {

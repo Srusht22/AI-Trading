@@ -97,3 +97,51 @@ describe('API middleware', () => {
     expect(boom.headers.get('x-robots-tag')).toBeNull();
   });
 });
+
+describe('MT5 connector actions', () => {
+  const capture = () => {
+    const sent: { url: string; body: Record<string, unknown> }[] = [];
+    const fetchImpl = (async (url: string, init: RequestInit) => {
+      sent.push({ url, body: JSON.parse(String(init.body)) });
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }) as unknown as typeof fetch;
+    return { sent, fetchImpl };
+  };
+
+  it('pairs with the hash of the normalised code and of the self-generated token — never the raw values', async () => {
+    const { sent, fetchImpl } = capture();
+    const res = await handleAgentRequest(req('pair', { body: JSON.stringify({ pairing_code: 'ab12-CD34-ef56-7890-AAAA', agent_version: '1.0.0' }) }), env, 'pair', { fetch: fetchImpl });
+    expect(res.status).toBe(200);
+    expect(sent[0].url).toMatch(/\/rpc\/agent_pair$/);
+    const body = JSON.stringify(sent[0].body);
+    expect(body).not.toContain(token);
+    expect(body).not.toMatch(/AB12/i);
+    const expected = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('AB12CD34EF567890AAAA'))), (b) => b.toString(16).padStart(2, '0')).join('');
+    expect(sent[0].body.p_code_sha256).toBe(`\\x${expected}`);
+  });
+
+  it('accepts only the read-only data kinds with strict per-kind schemas', async () => {
+    const { sent, fetchImpl } = capture();
+    const base = { connection_id: crypto.randomUUID(), account_fingerprint: 'a'.repeat(64) };
+    const call = (body: unknown) => handleAgentRequest(req('mt5-publish', { body: JSON.stringify(body) }), env, 'mt5-publish', { fetch: fetchImpl });
+    const quotes = { observed_at: '2026-10-24T10:00:00Z', quotes: [{ symbol: 'EURUSD.r', bid: 1.1, ask: 1.1001, last: null, tick_time: '2026-10-24T09:59:59Z' }] };
+    expect((await call({ ...base, kind: 'quotes', data: quotes })).status).toBe(200);
+    expect(sent[0].body.p_kind).toBe('quotes');
+    expect((await call({ ...base, kind: 'order_send', data: {} })).status).toBe(422);
+    expect((await call({ ...base, kind: 'quotes', data: { ...quotes, comment: 'x' } })).status).toBe(422);
+    expect((await call({ ...base, kind: 'quotes', data: { ...quotes, quotes: [{ ...quotes.quotes[0], tick_time: '2026-10-24 10:00' }] } })).status).toBe(422);
+    expect(sent).toHaveLength(1);
+  });
+
+  it('allows larger bodies only for mt5-publish', async () => {
+    const { fetchImpl } = capture();
+    const symbols = Array.from({ length: 900 }, (_, i) => ({
+      name: `SYM${i}`, description: 'A broker instrument with a long description', path: 'Forex\\Majors', digits: 5, point: 0.00001,
+      currency_base: 'EUR', currency_profit: 'USD', trade_mode: 4, visible: false,
+    }));
+    const body = JSON.stringify({ connection_id: crypto.randomUUID(), account_fingerprint: 'a'.repeat(64), kind: 'symbols', data: { batch_id: crypto.randomUUID(), page: 0, final: true, symbols } });
+    expect(body.length).toBeGreaterThan(8 * 1024);
+    expect((await handleAgentRequest(req('mt5-publish', { body }), env, 'mt5-publish', { fetch: fetchImpl })).status).toBe(200);
+    expect((await handleAgentRequest(req('mt5-connection', { body }), env, 'mt5-connection', { fetch: fetchImpl })).status).toBe(413);
+  });
+});

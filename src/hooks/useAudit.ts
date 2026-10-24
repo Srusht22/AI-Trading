@@ -9,6 +9,16 @@ export function useRecentAuditEvents(limit = 8) {
   return useQuery({ queryKey: queryKeys.auditRecent(user.id, limit), queryFn: () => audit.listRecent(user.id, { limit }) });
 }
 
+/** Connector and agent events only (pairing, verification, blocks, disconnects). */
+export function useConnectorEvents(limit = 6) {
+  const { audit } = useServices();
+  const user = useCurrentUser();
+  return useQuery({
+    queryKey: [...queryKeys.audit(user.id), 'connector', limit],
+    queryFn: () => audit.listRecent(user.id, { limit, eventPrefixes: ['connector.', 'agent.'] }),
+  });
+}
+
 export interface DailyCount {
   /** The calendar day (in the display timezone) encoded as UTC midnight; format with timeZone 'UTC'. */
   t: number;

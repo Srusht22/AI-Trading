@@ -1,4 +1,4 @@
-import { CircleCheck, KeyRound, LogIn, LogOut, type LucideIcon, Settings2, ShieldCheck, UserPlus, UserRound } from 'lucide-react';
+import { Ban, CircleCheck, KeyRound, ListChecks, LogIn, LogOut, type LucideIcon, Plug, PlugZap, Settings2, ShieldCheck, Unplug, UserPlus, UserRound } from 'lucide-react';
 import type { AuditEvent } from '@/domain/audit';
 import { describeAuditEvent } from '@/domain/audit';
 import { Tooltip } from '@/components/ui';
@@ -14,6 +14,14 @@ const icons: Record<string, { icon: LucideIcon; className: string }> = {
   'profile.updated': { icon: UserRound, className: 'text-fg-2 bg-line-soft' },
   'settings.updated': { icon: Settings2, className: 'text-fg-2 bg-line-soft' },
   'owner.assigned': { icon: ShieldCheck, className: 'text-accent bg-accent-soft' },
+  'agent.paired': { icon: PlugZap, className: 'text-accent bg-accent-soft' },
+  'agent.pairing_created': { icon: KeyRound, className: 'text-fg-2 bg-line-soft' },
+  'agent.revoked': { icon: KeyRound, className: 'text-negative bg-negative-soft' },
+  'connector.verified': { icon: ShieldCheck, className: 'text-positive bg-positive-soft' },
+  'connector.blocked': { icon: Ban, className: 'text-negative bg-negative-soft' },
+  'connector.disconnected': { icon: Unplug, className: 'text-fg-2 bg-line-soft' },
+  'connector.resumed': { icon: Plug, className: 'text-info bg-info-soft' },
+  'connector.symbols_selected': { icon: ListChecks, className: 'text-fg-2 bg-line-soft' },
 };
 
 /** Timeline of recorded account events (real audit records, newest first). */

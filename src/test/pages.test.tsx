@@ -9,7 +9,7 @@ describe('dashboard', () => {
     await renderWorkspace('/');
     expect(screen.getByText('This is your real workspace')).toBeInTheDocument();
     expect(screen.queryByText('You are viewing sample data')).not.toBeInTheDocument();
-    expect(screen.getByText('No performance data yet')).toBeInTheDocument();
+    expect(await screen.findByText('No account connected')).toBeInTheDocument();
     expect(screen.queryByText(/\$\d/)).not.toBeInTheDocument();
   });
 
@@ -19,7 +19,7 @@ describe('dashboard', () => {
     expect(screen.getByText('You are viewing sample data')).toBeInTheDocument();
     expect(screen.getAllByText(/sample/i).length).toBeGreaterThan(4);
     await user.click(screen.getByRole('button', { name: 'Hide sample data' }));
-    expect(screen.getByText('No performance data yet')).toBeInTheDocument();
+    expect(await screen.findByText('No account connected')).toBeInTheDocument();
     expect(localStorage.getItem('tp-sample-data')).toBe('off');
   });
 
@@ -91,12 +91,10 @@ describe('AI analyst', () => {
 });
 
 describe('demo trading', () => {
-  it('asks for confirmation before the emergency control and takes no action', async () => {
-    const { user } = await renderWorkspace('/demo-trading');
-    await user.click(await screen.findByRole('button', { name: 'Emergency disable all' }));
-    const confirm = await screen.findByRole('dialog', { name: 'Disable all demo robots?' });
-    await user.click(within(confirm).getByRole('button', { name: 'Disable all robots' }));
-    expect(await screen.findByText(/No instruction was sent/)).toBeInTheDocument();
+  it('keeps the emergency control unavailable in the read-only phase and says why', async () => {
+    await renderWorkspace('/demo-trading');
+    expect(await screen.findByRole('button', { name: 'Emergency disable all' })).toBeDisabled();
+    expect(screen.getByText(/Robot controls and the emergency stop are not available in this read-only version/)).toBeInTheDocument();
   });
 });
 

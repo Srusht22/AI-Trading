@@ -53,7 +53,7 @@ export default function RobotsPage() {
     showPreview({
       title: 'Import robot',
       body: 'Importing will let you add an Expert Advisor file (.ex5 or .mq5) to your library. TradePilot will then check whether it can be tested safely.',
-      requires: 'Storage and the Windows connector, planned for later phases.',
+      requires: 'Robot storage and EA execution through the connector, planned for later phases (the connector is read-only today).',
     });
 
   return (

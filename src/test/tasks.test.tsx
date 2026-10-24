@@ -81,7 +81,7 @@ describe('diagnostics on the Connections page', () => {
   it('disables the health check and explains why when no agent is online', async () => {
     await renderWorkspace('/connections');
     expect(await screen.findByText('No agents registered')).toBeInTheDocument();
-    expect(screen.getByText('No tasks yet')).toBeInTheDocument();
+    expect(await screen.findByText('No tasks yet')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Run health check' })).toBeDisabled();
     expect(screen.getByText('No diagnostics agent is online. Start one to run a health check.')).toBeInTheDocument();
   });

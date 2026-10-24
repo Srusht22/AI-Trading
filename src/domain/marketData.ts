@@ -2,9 +2,8 @@ import { z } from 'zod';
 import type { DataFreshness } from './freshness';
 
 /**
- * Contracts for data the MT5 connector will publish in later phases.
- * Nothing in Phase 2 produces these values; charts accept them so real
- * sources can be connected without redesigning the UI.
+ * Chart contracts for backtest and equity series (backtests arrive in a later
+ * phase). Live MT5 account and market data (Phase 4) is modelled in mt5.ts.
  *
  * Time basis matters for MT5: terminal bar times are broker-server time,
  * while TradePilot stores and transmits UTC. Every series says which it uses.

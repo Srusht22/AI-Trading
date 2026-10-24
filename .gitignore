@@ -24,3 +24,8 @@ playwright-report
 .dev.vars
 .wrangler
 .pages-e2e
+
+# Python (MT5 connector)
+connector/.venv/
+__pycache__/
+.pytest_cache/
